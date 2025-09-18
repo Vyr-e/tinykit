@@ -1,5 +1,5 @@
 import { execSync, spawn } from 'child_process';
-import { log, format } from '../utils/terminal';
+import { log } from '../utils/terminal';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';

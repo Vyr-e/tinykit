@@ -1,7 +1,7 @@
 import prompts from 'prompts';
-import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
-import { join, extname } from 'path';
-import { log, format } from '../utils/terminal';
+import { readdirSync, readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { log } from '../utils/terminal';
 
 interface ValidateOptions {
   dir: string;
