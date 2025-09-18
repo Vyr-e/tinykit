@@ -155,12 +155,12 @@ describe('Pipe Generator', () => {
   });
 
   test('should generate pipe without version', () => {
-    const pipe: PipeConfig<any> = {
+    const pipe = {
       name: 'test_no_version_pipe',
       parameters: {
         id: stringParam('id', { required: true })
       },
-      sql: (params) => `SELECT * FROM table WHERE id = ${params.id}`
+      sql: (params: any) => `SELECT * FROM table WHERE id = ${params.id}`
     };
 
     const result = generatePipeFile(pipe);

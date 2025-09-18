@@ -70,17 +70,28 @@ export const tb = new Tinybird({
     expect(result.tinybirdClients).toHaveLength(1);
     
     const client = result.tinybirdClients[0];
-    expect(client.exportName).toBe('tb');
-    expect(Object.keys(client.datasources)).toHaveLength(1);
-    expect(Object.keys(client.pipes)).toHaveLength(1);
+    expect(client).toBeDefined();
+    if (client) {
+      expect(client.exportName).toBe('tb');
+      expect(Object.keys(client.datasources)).toHaveLength(1);
+      expect(Object.keys(client.pipes)).toHaveLength(1);
+    }
     
     expect(result.datasources).toHaveLength(1);
-    expect(result.datasources[0].name).toBe('events__v1');
-    expect(result.datasources[0].exportName).toBe('tb.datasources.userEvents');
+    const datasource = result.datasources[0];
+    expect(datasource).toBeDefined();
+    if (datasource) {
+      expect(datasource.name).toBe('events__v1');
+      expect(datasource.exportName).toBe('tb.datasources.userEvents');
+    }
     
     expect(result.pipes).toHaveLength(1);
-    expect(result.pipes[0].name).toBe('get_user_activity__v1');
-    expect(result.pipes[0].exportName).toBe('tb.pipes.getUserActivity');
+    const pipe = result.pipes[0];
+    expect(pipe).toBeDefined();
+    if (pipe) {
+      expect(pipe.name).toBe('get_user_activity__v1');
+      expect(pipe.exportName).toBe('tb.pipes.getUserActivity');
+    }
   });
 
   test('should discover standalone datasources and pipes', async () => {
@@ -120,11 +131,21 @@ export const myPipe = definePipe({
     expect(result.datasources).toHaveLength(1);
     expect(result.pipes).toHaveLength(1);
     
-    expect(result.datasources[0].name).toBe('my_table__v1');
-    expect(result.datasources[0].exportName).toBe('myDataSource');
+    const datasource = result.datasources[0];
+    const pipe = result.pipes[0];
     
-    expect(result.pipes[0].name).toBe('my_pipe__v1');
-    expect(result.pipes[0].exportName).toBe('myPipe');
+    expect(datasource).toBeDefined();
+    expect(pipe).toBeDefined();
+    
+    if (datasource) {
+      expect(datasource.name).toBe('my_table__v1');
+      expect(datasource.exportName).toBe('myDataSource');
+    }
+    
+    if (pipe) {
+      expect(pipe.name).toBe('my_pipe__v1');
+      expect(pipe.exportName).toBe('myPipe');
+    }
   });
 
   test('should handle files with no TinyKit exports', async () => {
@@ -182,8 +203,12 @@ export const something = nonExistentImport();
     const warnings = validateNaming(analysis);
     
     expect(warnings).toHaveLength(2);
-    expect(warnings[0]).toContain('Duplicate datasource names found: events__v1');
-    expect(warnings[1]).toContain('Duplicate pipe names found: get_events__v1');
+    expect(warnings[0]).toBeDefined();
+    expect(warnings[1]).toBeDefined();
+    if (warnings[0] && warnings[1]) {
+      expect(warnings[0]).toContain('Duplicate datasource names found: events__v1');
+      expect(warnings[1]).toContain('Duplicate pipe names found: get_events__v1');
+    }
   });
 
   test('should handle complex Tinybird client configurations', async () => {
@@ -246,18 +271,23 @@ export const primaryClient = new Tinybird({
     expect(result.tinybirdClients).toHaveLength(1);
     
     const client = result.tinybirdClients[0];
-    expect(client.exportName).toBe('primaryClient');
-    expect(Object.keys(client.datasources)).toHaveLength(2);
-    expect(Object.keys(client.pipes)).toHaveLength(2);
+    expect(client).toBeDefined();
+    if (client) {
+      expect(client.exportName).toBe('primaryClient');
+      expect(Object.keys(client.datasources)).toHaveLength(2);
+      expect(Object.keys(client.pipes)).toHaveLength(2);
+    }
     
     expect(result.datasources).toHaveLength(2);
     expect(result.pipes).toHaveLength(2);
     
     const eventsPipe = result.pipes.find(p => p.name === 'get_events__v2');
     expect(eventsPipe).toBeDefined();
-    expect(eventsPipe!.config.parameters).toHaveProperty('type');
-    expect(eventsPipe!.config.parameters).toHaveProperty('limit');
-    expect(eventsPipe!.config.parameters).toHaveProperty('status');
+    if (eventsPipe) {
+      expect(eventsPipe.config.parameters).toHaveProperty('type');
+      expect(eventsPipe.config.parameters).toHaveProperty('limit');
+      expect(eventsPipe.config.parameters).toHaveProperty('status');
+    }
   });
 
   test('should access client configuration via symbols (not public API)', async () => {
@@ -306,19 +336,30 @@ export const testClient = new Tinybird({
     expect(result.tinybirdClients).toHaveLength(1);
     
     const client = result.tinybirdClients[0];
-    expect(client.exportName).toBe('testClient');
-    
-    // Verify analyzer can access configuration via symbols
-    expect(Object.keys(client.datasources)).toEqual(['testTable']);
-    expect(Object.keys(client.pipes)).toEqual(['testPipe']);
+    expect(client).toBeDefined();
+    if (client) {
+      expect(client.exportName).toBe('testClient');
+      
+      // Verify analyzer can access configuration via symbols
+      expect(Object.keys(client.datasources)).toEqual(['testTable']);
+      expect(Object.keys(client.pipes)).toEqual(['testPipe']);
+    }
     
     expect(result.datasources).toHaveLength(1);
-    expect(result.datasources[0].name).toBe('test_table__v1');
-    expect(result.datasources[0].exportName).toBe('testClient.datasources.testTable');
+    const datasource = result.datasources[0];
+    expect(datasource).toBeDefined();
+    if (datasource) {
+      expect(datasource.name).toBe('test_table__v1');
+      expect(datasource.exportName).toBe('testClient.datasources.testTable');
+    }
     
     expect(result.pipes).toHaveLength(1);
-    expect(result.pipes[0].name).toBe('test_pipe__v1');
-    expect(result.pipes[0].exportName).toBe('testClient.pipes.testPipe');
+    const pipe = result.pipes[0];
+    expect(pipe).toBeDefined();
+    if (pipe) {
+      expect(pipe.name).toBe('test_pipe__v1');
+      expect(pipe.exportName).toBe('testClient.pipes.testPipe');
+    }
   });
 
   test('should ensure datasources and pipes are not publicly accessible', async () => {
@@ -349,32 +390,32 @@ export const client = new Tinybird({
 // Test that public API doesn't expose internal config
 export const publicApiTest = {
   // Private properties are detectable via 'in' operator but not accessible
-  hasDatasourcesProperty: 'datasources' in client,
-  hasPipesProperty: 'pipes' in client,
-  hasConfigProperty: 'config' in client,
+  hasDatasourcesProperty: 'datasources' in client!,
+  hasPipesProperty: 'pipes' in client!,
+  hasConfigProperty: 'config' in client!,
   
   // Test actual access - these should be undefined for private properties
-  datasourcesValue: (client as any).datasources,
-  pipesValue: (client as any).pipes,
-  configValue: (client as any).config,
+  datasourcesValue: (client! as any).datasources,
+  pipesValue: (client! as any).pipes,
+  configValue: (client! as any).config,
   
   // These should be accessible (public API)
-  hasTokenProperty: 'token' in client,
-  hasNoopProperty: 'noop' in client,
-  hasFromMethod: typeof client.from === 'function',
-  hasPipeMethod: typeof client.pipe === 'function',
-  hasIngestMethod: typeof client.ingest === 'function',
+  hasTokenProperty: 'token' in client!,
+  hasNoopProperty: 'noop' in client!,
+  hasFromMethod: typeof client!.from === 'function',
+  hasPipeMethod: typeof client!.pipe === 'function',
+  hasIngestMethod: typeof client!.ingest === 'function',
   
   // Public properties should have actual values
-  tokenValue: client.token,
-  noopValue: client.noop,
+  tokenValue: client!.token,
+  noopValue: client!.noop,
   
   // Object.keys should not reveal internal symbols or private properties
-  objectKeys: Object.keys(client),
+  objectKeys: Object.keys(client!),
   
   // getOwnPropertyNames should not reveal symbol properties
-  ownPropertyNames: Object.getOwnPropertyNames(client),
-  symbolPropertyNames: Object.getOwnPropertyNames(client).filter(name => 
+  ownPropertyNames: Object.getOwnPropertyNames(client!),
+  symbolPropertyNames: Object.getOwnPropertyNames(client!).filter(name => 
     name.includes('datasource') || name.includes('pipe') || name.includes('config')
   )
 };
@@ -424,7 +465,11 @@ export const publicApiTest = {
     // But analyzer should still work
     expect(result.tinybirdClients).toHaveLength(1);
     expect(result.datasources).toHaveLength(1);
-    expect(result.datasources[0].name).toBe('private_table__v1');
+    const datasource = result.datasources[0];
+    expect(datasource).toBeDefined();
+    if (datasource) {
+      expect(datasource.name).toBe('private_table__v1');
+    }
   });
 
   test('should handle clients with no datasources or pipes', async () => {
@@ -451,13 +496,17 @@ export const noopClient = new Tinybird({
     
     const emptyClient = result.tinybirdClients.find(c => c.exportName === 'emptyClient');
     expect(emptyClient).toBeDefined();
-    expect(Object.keys(emptyClient!.datasources)).toHaveLength(0);
-    expect(Object.keys(emptyClient!.pipes)).toHaveLength(0);
+    if (emptyClient) {
+      expect(Object.keys(emptyClient.datasources)).toHaveLength(0);
+      expect(Object.keys(emptyClient.pipes)).toHaveLength(0);
+    }
     
     const noopClient = result.tinybirdClients.find(c => c.exportName === 'noopClient');
     expect(noopClient).toBeDefined();
-    expect(Object.keys(noopClient!.datasources)).toHaveLength(0);
-    expect(Object.keys(noopClient!.pipes)).toHaveLength(0);
+    if (noopClient) {
+      expect(Object.keys(noopClient.datasources)).toHaveLength(0);
+      expect(Object.keys(noopClient.pipes)).toHaveLength(0);
+    }
     
     expect(result.datasources).toHaveLength(0);
     expect(result.pipes).toHaveLength(0);
