@@ -1,0 +1,125 @@
+{
+  "name": "@vyr-e/tinykit",
+  "version": "0.1.0",
+  "description": "TypeSafe query client for Tinybird with functional API",
+  "type": "module",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./core": {
+      "types": "./dist/src/client.d.ts",
+      "import": "./dist/src/client.js",
+      "require": "./dist/client.cjs"
+    },
+    "./schema": {
+      "types": "./dist/src/schema.d.ts",
+      "import": "./dist/src/schema.js",
+      "require": "./dist/schema.cjs"
+    },
+    "./query": {
+      "types": "./dist/src/query.d.ts",
+      "import": "./dist/src/query.js",
+      "require": "./dist/query.cjs"
+    },
+    "./pipe": {
+      "types": "./dist/src/pipe.d.ts",
+      "import": "./dist/src/pipe.js",
+      "require": "./dist/pipe.cjs"
+    },
+    "./ingest": {
+      "types": "./dist/src/ingest.d.ts",
+      "import": "./dist/src/ingest.js",
+      "require": "./dist/ingest.cjs"
+    },
+    "./types": {
+      "types": "./dist/src/types.d.ts",
+      "import": "./dist/src/types.js",
+      "require": "./dist/types.cjs"
+    },
+    "./utils": {
+      "types": "./dist/src/util.d.ts",
+      "import": "./dist/src/util.js",
+      "require": "./dist/util.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "tinybird",
+    "clickhouse",
+    "typescript",
+    "analytics",
+    "query-builder",
+    "schema",
+    "type-safe"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vyr-e/tinykit.git"
+  },
+  "homepage": "https://github.com/vyr-e/tinykit#readme",
+  "bugs": {
+    "url": "https://github.com/vyr-e/tinykit/issues"
+  },
+  "author": "Bethel-nz <bethelnzofficial@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && npm run build:cjs",
+    "build:cjs": "echo 'Building CommonJS exports...' && npm run build:cjs:client && npm run build:cjs:schema && npm run build:cjs:query && npm run build:cjs:pipe && npm run build:cjs:ingest && npm run build:cjs:types && npm run build:cjs:util && npm run build:cjs:index",
+    "build:cjs:client": "echo 'module.exports = require(\"./src/client.js\");' > dist/client.cjs",
+    "build:cjs:schema": "echo 'module.exports = require(\"./src/schema.js\");' > dist/schema.cjs",
+    "build:cjs:query": "echo 'module.exports = require(\"./src/query.js\");' > dist/query.cjs",
+    "build:cjs:pipe": "echo 'module.exports = require(\"./src/pipe.js\");' > dist/pipe.cjs",
+    "build:cjs:ingest": "echo 'module.exports = require(\"./src/ingest.js\");' > dist/ingest.cjs",
+    "build:cjs:types": "echo 'module.exports = require(\"./src/types.js\");' > dist/types.cjs",
+    "build:cjs:util": "echo 'module.exports = require(\"./src/util.js\");' > dist/util.cjs",
+    "build:cjs:index": "echo 'module.exports = require(\"./index.js\");' > dist/index.cjs",
+    "dev": "tsc --watch",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'Add your linter here'",
+    "format": "echo 'Add your formatter here'",
+    "demo": "bun run demo-clean-syntax.ts",
+    "prepublishOnly": "npm run build && npm test",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "zod": "^3.22.4",
+    "zodest": "^0.3.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.10.0",
+    "@types/prompts": "^2.4.9",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.5.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
+  "bin": {
+    "tinykit": "./dist/cli.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
