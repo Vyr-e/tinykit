@@ -2,13 +2,13 @@ import { z } from 'zod';
 
 export const pipeResponseWithoutData = z.object({
   meta: z.array(z.object({
-    name: z.string(),
-    type: z.string(),
-  })),
+    name: z.string().optional(),
+    type: z.string().optional(),
+  })).optional(),
   statistics: z.object({
-    elapsed: z.number(),
-    rows_read: z.number(),
-    bytes_read: z.number(),
+    elapsed: z.number().optional(),
+    rows_read: z.number().optional(),
+    bytes_read: z.number().optional(),
   }).optional(),
 });
 
