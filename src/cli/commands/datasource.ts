@@ -236,6 +236,7 @@ function getToken(options: { token?: string; config?: string }): string | undefi
   const defaultConfigs = [
     '.tinykitrc',
     '.tinybird',
+    ".tinyb",
     join(process.env.HOME || process.env.USERPROFILE || '', '.tinykitrc')
   ];
 
