@@ -7,10 +7,13 @@ import type {
   InferParametersWithDefaults,
   InferSchemaType,
   InferSQLReturnType,
+  InferParameterTemplates,
   SchemaDefinition,
+  SQLExpression,
 } from './types.js';
+import { sqlExpression } from './types.js';
 import type { QueryBuilder } from './query.js';
-import { query } from './query.js';
+import { query, renderParameterTemplate } from './query.js';
 import { createZodSchemaFromParameters } from './client.js';
 
 type QueryParameterOptions<T> = {
@@ -318,7 +321,8 @@ export class PipeBuilder<
   endpoint(
     queryFn: (
       q: QueryBuilder<TSchema>,
-      params: InferParametersWithDefaults<TParams>
+      params: InferParametersWithDefaults<TParams>,
+      tpl: InferParameterTemplates<TParams>
     ) => QueryBuilder<TSchema>
   ): PipeConfig<TParams, TName, unknown> {
     return {
@@ -327,11 +331,37 @@ export class PipeBuilder<
       parameters: this.config.parameters,
       sql: (params: InferParametersType<TParams> | {}) => {
         const paramsWithDefaults = this.applyDefaults(params);
-        const q = queryFn(query(this.config.schema), paramsWithDefaults);
+        const q = queryFn(
+          query(this.config.schema),
+          paramsWithDefaults,
+          this.parameterTemplates()
+        );
         return this.applyConditionalParameters(q.build(), params);
       },
       isRaw: false,
     };
+  }
+
+  /**
+   * Renders each declared parameter as a branded Tinybird template.
+   *
+   * `params` hands the query function resolved values, which are correct for
+   * branching on but get baked into the generated SQL if interpolated. `tpl`
+   * is the counterpart that stays a parameter.
+   */
+  private parameterTemplates(): InferParameterTemplates<TParams> {
+    const templates = {} as Record<string, SQLExpression>;
+
+    for (const [key, parameter] of Object.entries(this.config.parameters)) {
+      templates[key] = sqlExpression(
+        renderParameterTemplate(parameter.name ?? key, parameter.type, {
+          required: parameter.required,
+          default: parameter.default,
+        })
+      );
+    }
+
+    return templates as InferParameterTemplates<TParams>;
   }
 
   /**

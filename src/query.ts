@@ -1,4 +1,10 @@
-import type { SchemaDefinition, InferSchemaType, Granularity } from './types.js';
+import type {
+  SchemaDefinition,
+  InferSchemaType,
+  Granularity,
+  SQLExpression,
+} from './types.js';
+import { isSQLExpression, sqlExpression } from './types.js';
 
 /**
  * Represents a SQL operator and its value for a WHERE clause.
@@ -266,7 +272,7 @@ export type QueryBuilder<T extends SchemaDefinition> = {
    * query(mySchema).limit(10)
    * ```
    */
-  limit: (limit: number) => QueryBuilder<T>;
+  limit: (limit: number | SQLExpression) => QueryBuilder<T>;
 
   /**
    * Adds an OFFSET clause to the query.
@@ -277,7 +283,7 @@ export type QueryBuilder<T extends SchemaDefinition> = {
    * query(mySchema).offset(10)
    * ```
    */
-  offset: (offset: number) => QueryBuilder<T>;
+  offset: (offset: number | SQLExpression) => QueryBuilder<T>;
 
   /**
    * Conditionally applies a chain of query builder methods.
@@ -324,8 +330,8 @@ type QueryState<T extends SchemaDefinition> = {
   having: string[];
   unions: Array<{ query: QueryBuilder<T>; type: 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT' }>;
   orderBy: string[];
-  limit?: number;
-  offset?: number;
+  limit?: number | SQLExpression;
+  offset?: number | SQLExpression;
   schema: T;
   ctes: { alias: string; sql: string }[];
   rawSql?: string;
@@ -547,11 +553,11 @@ export function query<T extends SchemaDefinition>(schema: T): QueryBuilder<T> {
       }
 
       if (state.limit !== undefined) {
-        parts.push(`LIMIT ${state.limit}`);
+        parts.push(`LIMIT ${String(state.limit)}`);
       }
 
       if (state.offset !== undefined) {
-        parts.push(`OFFSET ${state.offset}`);
+        parts.push(`OFFSET ${String(state.offset)}`);
       }
 
       let mainSql = parts.join('\n');
@@ -638,8 +644,38 @@ export function conditional(
  * @param type The type of the parameter.
  * @param required Whether the parameter is required.
  */
-export function param(name: string, type: 'String' | 'Int64' | 'Float64' | 'DateTime' | 'Date' | 'Boolean', required = false): string {
-  return `{{ ${type}(${name}${required ? ', required=True' : ''}) }}`;
+export function param(
+  name: string,
+  type: 'String' | 'Int64' | 'Float64' | 'DateTime' | 'Date' | 'Boolean',
+  options: boolean | { required?: boolean; default?: string | number | boolean } = false
+): SQLExpression {
+  const opts = typeof options === 'boolean' ? { required: options } : options;
+  return sqlExpression(renderParameterTemplate(name, type, opts));
+}
+
+/**
+ * Renders a Tinybird parameter template.
+ *
+ * A required parameter cannot also carry a default - Tinybird would never reach
+ * the default - so `required` wins and the default is ignored.
+ * @internal
+ */
+export function renderParameterTemplate(
+  name: string,
+  type: 'String' | 'Int64' | 'Float64' | 'DateTime' | 'Date' | 'Boolean',
+  options: { required?: boolean; default?: unknown }
+): string {
+  if (options.required) {
+    return `{{ ${type}(${name}, required=True) }}`;
+  }
+  if (options.default !== undefined) {
+    const literal =
+      typeof options.default === 'string'
+        ? `'${String(options.default).replace(/'/g, "\\'")}'`
+        : String(options.default);
+    return `{{ ${type}(${name}, ${literal}) }}`;
+  }
+  return `{{ ${type}(${name}) }}`;
 }
 
 /** Creates a `ROW_NUMBER()` window function. */
@@ -736,16 +772,11 @@ export function lastValue(column: string, partitionBy?: string, orderBy?: string
  * @internal
  */
 function escapeValue(value: any): string {
+  if (isSQLExpression(value)) return value.toString();
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? '1' : '0';
   if (typeof value === 'string') {
-    // Heuristic: If the string contains characters common in SQL functions or parameters,
-    // assume it's a safe expression and don't quote it.
-    if (/[(){}]/.test(value)) {
-      return value;
-    }
-    // Otherwise, treat it as a literal string and escape it.
     return `'${value.replace(/'/g, "''")}'`;
   }
   throw new Error(`Unsupported value type for escaping: ${typeof value}`);
