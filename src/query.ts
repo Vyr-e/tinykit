@@ -644,6 +644,18 @@ export function conditional(
  * @param type The type of the parameter.
  * @param required Whether the parameter is required.
  */
+/**
+ * Marks a string as SQL so the builder inlines it instead of quoting it.
+ *
+ * Needed only where a literal expression has no `param()` equivalent, such as
+ * `where('ts', gte(unsafeSQL('now() - INTERVAL 1 DAY')))`. The name is a
+ * warning: whatever is passed becomes SQL verbatim, so it must never carry a
+ * runtime value. Prefer `param()` or the endpoint's `tpl`.
+ */
+export function unsafeSQL(expression: string): SQLExpression {
+  return sqlExpression(expression);
+}
+
 export function param(
   name: string,
   type: 'String' | 'Int64' | 'Float64' | 'DateTime' | 'Date' | 'Boolean',

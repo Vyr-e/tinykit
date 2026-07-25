@@ -70,6 +70,7 @@ export {
   timeGranularity,
   conditional,
   param,
+  unsafeSQL,
   eq,
   neq,
   gt,

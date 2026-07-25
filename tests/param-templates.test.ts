@@ -12,6 +12,7 @@ import {
   int64,
   eq,
   gte,
+  unsafeSQL,
 } from '../src';
 
 const schema = defineSchema({
@@ -210,6 +211,16 @@ describe('escapeValue treats unbranded values as data', () => {
     const sql = query(schema).selectRaw('*').from('t').where('name', eq(hostile)).build();
 
     expect(sql).toContain("WHERE name = '{{ String(admin) }}'");
+  });
+
+  test('unsafeSQL is the explicit opt-in for a literal expression', () => {
+    const sql = query(schema)
+      .selectRaw('*')
+      .from('t')
+      .where('timestamp', gte(unsafeSQL('now() - INTERVAL 1 DAY')))
+      .build();
+
+    expect(sql).toContain('WHERE timestamp >= now() - INTERVAL 1 DAY');
   });
 
   test('a branded expression is still inlined', () => {
