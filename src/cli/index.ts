@@ -22,7 +22,7 @@ import {
 } from './commands/deploy.js';
 import { log } from './utils/terminal.js';
 
-const VERSION = '0.1.2';
+const VERSION = '0.1.3';
 
 const program = new Command()
   .name('tinykit')

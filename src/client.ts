@@ -115,7 +115,11 @@ type ExtractDatasourceNames<T extends Record<string, any>> = {
 type FindDatasourceByName<
   TName extends string,
   TDatasources extends Record<string, any>
-> = TDatasources[keyof TDatasources] & { name: TName };
+> = {
+  [K in keyof TDatasources]: TDatasources[K] extends { name: TName }
+    ? TDatasources[K]
+    : never;
+}[keyof TDatasources];
 
 /**
  * The main Tinybird client for interacting with your DataSources and Pipes.
