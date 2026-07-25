@@ -6,10 +6,10 @@ import type {
   InferParametersType,
   InferParametersWithDefaults,
   SchemaDefinition,
-} from './types';
-import type { QueryBuilder } from './query';
-import { query } from './query';
-import { createZodSchemaFromParameters } from './client';
+} from './types.js';
+import type { QueryBuilder } from './query.js';
+import { query } from './query.js';
+import { createZodSchemaFromParameters } from './client.js';
 
 /**
  * Defines a String parameter for a Tinybird Pipe.
@@ -269,7 +269,7 @@ export class PipeBuilder<
       sql: (params: InferParametersType<TParams> | {}) => {
         const paramsWithDefaults = this.applyDefaults(params);
         const q = queryFn(query(this.config.schema), paramsWithDefaults);
-        return this.generatePipeSQL(q.build(), params);
+        return this.applyConditionalParameters(q.build(), params);
       },
       isRaw: false,
     };
@@ -285,8 +285,9 @@ export class PipeBuilder<
       name: this.config.name,
       version: this.config.version,
       parameters: this.config.parameters,
-      sql: () => this.generatePipeSQL(sql, {}),
+      sql: () => sql,
       isRaw: true,
+      rawSql: sql,
     };
   }
 
@@ -304,32 +305,19 @@ export class PipeBuilder<
     return result as InferParametersWithDefaults<TParams>;
   }
 
-  private generatePipeSQL(
+  private applyConditionalParameters(
     query: string,
     params: InferParametersType<TParams> | {}
   ): string {
-    let sql = '';
-
-    if (this.config.version) {
-      sql += `VERSION ${this.config.version}\n\n`;
-    }
-
-    sql += 'NODE endpoint\nSQL >\n    %\n';
-
-    const lines = query.split('\n');
-    const formattedQuery = lines.map((line) => `    ${line}`).join('\n');
-
-    sql += formattedQuery;
-
     const hasConditionalParams = Object.entries(this.config.parameters).some(
       ([key, param]) => !param.required && param.default === undefined
     );
 
-    if (hasConditionalParams) {
-      sql = this.addConditionalParameters(sql, params);
+    if (!hasConditionalParams) {
+      return query;
     }
 
-    return sql;
+    return this.addConditionalParameters(query, params);
   }
 
   private addConditionalParameters(

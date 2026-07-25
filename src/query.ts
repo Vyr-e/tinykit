@@ -1,4 +1,4 @@
-import type { SchemaDefinition, InferSchemaType, Granularity } from './types';
+import type { SchemaDefinition, InferSchemaType, Granularity } from './types.js';
 
 /**
  * Represents a SQL operator and its value for a WHERE clause.

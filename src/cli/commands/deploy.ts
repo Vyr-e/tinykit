@@ -1,13 +1,13 @@
 import { execSync, spawn } from 'child_process';
-import { log } from '../utils/terminal';
+import { log } from '../utils/terminal.js';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 export interface DeployOptions {
   cloud?: boolean;
   local?: boolean;
-  dry_run?: boolean;
-  force?: boolean;
+  check?: boolean;
+  allowDestructiveOperations?: boolean;
   token?: string;
   config?: string;
 }
@@ -29,12 +29,12 @@ export async function deployCommand(options: DeployOptions, args: string[]) {
       tbArgs.push('--cloud');
     }
     
-    if (options.dry_run) {
-      tbArgs.push('--dry-run');
+    if (options.check) {
+      tbArgs.push('--check');
     }
     
-    if (options.force) {
-      tbArgs.push('--force');
+    if (options.allowDestructiveOperations) {
+      tbArgs.push('--allow-destructive-operations');
     }
     
     log.dim(`Running: tb ${tbArgs.join(' ')}`);

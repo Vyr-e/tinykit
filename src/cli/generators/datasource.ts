@@ -1,4 +1,4 @@
-import type { DataSourceConfig, SchemaDefinition } from '../../types';
+import type { DataSourceConfig, SchemaDefinition } from '../../types.js';
 
 export function generateDatasourceFile<T extends SchemaDefinition>(
   dataSource: DataSourceConfig<T>

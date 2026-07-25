@@ -1,5 +1,5 @@
 import { execSync, spawn } from 'child_process';
-import { log } from '../utils/terminal';
+import { log } from '../utils/terminal.js';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 

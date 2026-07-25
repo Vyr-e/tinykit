@@ -1,5 +1,5 @@
 import { execSync, spawn } from 'child_process';
-import { log } from '../utils/terminal';
+import { log } from '../utils/terminal.js';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
@@ -76,7 +76,7 @@ function buildTbArgs(options: QueryOptions, args: string[]): string[] {
     tbArgs.push('-f', resolve(options.file));
   } else if (options.pipe) {
     // Pipe execution with parameters
-    tbArgs.push('pipe');
+    tbArgs.push('endpoint');
     tbArgs.push('data', options.pipe);
     
     // Add any additional args as pipe parameters

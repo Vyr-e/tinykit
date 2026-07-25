@@ -2,7 +2,7 @@ import type {
   PipeConfig,
   QueryParameters,
   InferParametersType,
-} from '../../types';
+} from '../../types.js';
 
 export function generatePipeFile<TParams extends QueryParameters>(
   pipe: PipeConfig<TParams>
@@ -28,7 +28,7 @@ export function generatePipeFile<TParams extends QueryParameters>(
   const sql = pipe.isRaw ? pipe.sql({}) : generateTinybirdTemplateSQL(pipe);
 
   // Format SQL with proper indentation
-  const sqlLines = sql.split('\n');
+  const sqlLines = sql.trim().split('\n');
   sqlLines.forEach((line) => {
     if (line.trim()) {
       lines.push(`    ${line}`);
@@ -36,6 +36,9 @@ export function generatePipeFile<TParams extends QueryParameters>(
       lines.push('');
     }
   });
+
+  lines.push('');
+  lines.push('TYPE endpoint');
 
   return lines.join('\n') + '\n';
 }

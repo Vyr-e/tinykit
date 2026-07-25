@@ -1,7 +1,7 @@
 import prompts from 'prompts';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { log } from '../utils/terminal';
+import { log } from '../utils/terminal.js';
 
 interface ValidateOptions {
   dir: string;

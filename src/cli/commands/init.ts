@@ -1,7 +1,7 @@
 import prompts from 'prompts';
 import { mkdirSync, writeFileSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
-import { log } from '../utils/terminal';
+import { log } from '../utils/terminal.js';
 
 interface InitOptions {
   dir: string;
@@ -141,7 +141,7 @@ async function generateConfigFiles(
     },
     dependencies: {
       zod: '^3.22.4',
-      tinykit: 'latest',
+      '@vyr-e/tinykit': 'latest',
     },
     devDependencies: {
       '@types/node': '^20.10.0',
@@ -253,7 +253,7 @@ import {
   timeGranularity,
   fromUnixTimestamp64Milli,
   param,
-} from 'tinykit';
+} from '@vyr-e/tinykit';
 
 // Events schema definition
 export const eventsSchema = defineSchema({
@@ -313,7 +313,7 @@ export const eventsIngest = streamingIngest({
 
   if (examples.includes('ingestion')) {
     const ingestionExample = `import { z } from 'zod';
-import { Tinybird, syncIngest, streamingIngest } from 'tinykit';
+import { Tinybird, syncIngest, streamingIngest } from '@vyr-e/tinykit';
 import { eventsSchema } from './events';
 
 // Initialize Tinybird client

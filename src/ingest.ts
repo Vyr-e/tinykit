@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { SchemaDefinition, InferSchemaType } from './types';
+import type { SchemaDefinition, InferSchemaType } from './types.js';
 
 export type IngestConfig<T extends SchemaDefinition> = {
   datasource: string;

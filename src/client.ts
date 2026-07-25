@@ -5,18 +5,19 @@ import type {
   SchemaDefinition,
   InferSchemaType,
   DataSourceConfig,
-} from './types';
+} from './types.js';
 import {
   type PipeErrorResponse,
   eventIngestReponseData,
   pipeResponseWithoutData,
-} from './util';
+} from './util.js';
 import {
   defineIngest,
   type IngestDefinition,
   type IngestResult,
-} from './ingest';
-import { query, QueryBuilder } from './query';
+} from './ingest.js';
+import { query } from './query.js';
+import type { QueryBuilder } from './query.js';
 
 export class TinybirdError extends Error {
   public override readonly cause?: unknown;

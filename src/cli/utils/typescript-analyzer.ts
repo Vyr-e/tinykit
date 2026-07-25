@@ -1,7 +1,15 @@
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join, resolve } from 'path';
 import { pathToFileURL } from 'url';
-import type { DataSourceConfig, PipeConfig } from '../../types';
-import { log } from './terminal';
-import { isTinybirdClientSymbol, datasourcesSymbol, pipesSymbol } from '../../client';
+import { build } from 'esbuild';
+import type { DataSourceConfig, PipeConfig } from '../../types.js';
+import { log } from './terminal.js';
+import {
+  isTinybirdClientSymbol,
+  datasourcesSymbol,
+  pipesSymbol,
+} from '../../client.js';
 
 export interface DiscoveredDataSource {
   name: string;
@@ -45,11 +53,7 @@ export async function analyzeTypeScriptFile(filePath: string): Promise<AnalysisR
   try {
     log.dim(`    Importing ${filePath}...`);
     
-    // Convert file path to file URL for dynamic import
-    const fileUrl = pathToFileURL(filePath).href;
-    
-    // Dynamic import the TypeScript file
-    const module = await import(fileUrl);
+    const module = await loadTypeScriptModule(filePath);
     
     // Analyze all exports in the module
     for (const [exportName, exportValue] of Object.entries(module)) {
@@ -137,6 +141,33 @@ export async function analyzeTypeScriptFile(filePath: string): Promise<AnalysisR
   }
 
   return result;
+}
+
+async function loadTypeScriptModule(
+  filePath: string
+): Promise<Record<string, unknown>> {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'tinykit-'));
+  const outputFile = join(temporaryDirectory, 'entry.mjs');
+
+  try {
+    await build({
+      entryPoints: [resolve(filePath)],
+      outfile: outputFile,
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      target: 'node20',
+      sourcemap: 'inline',
+      logLevel: 'silent',
+    });
+
+    return (await import(pathToFileURL(outputFile).href)) as Record<
+      string,
+      unknown
+    >;
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
 }
 
 /**

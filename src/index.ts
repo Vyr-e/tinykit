@@ -6,10 +6,10 @@ export {
   TinybirdUnauthorizedError,
   TinybirdRetryExhaustedError,
   TinybirdValidationError
-} from './client';
-export { defineDataSource, defineSchema, generateCreateTableSQL } from './schema';
-export { definePipe, defineParameters, PipeBuilder } from './pipe';
-export { query } from './query';
+} from './client.js';
+export { defineDataSource, defineSchema, generateCreateTableSQL } from './schema.js';
+export { definePipe, defineParameters, PipeBuilder } from './pipe.js';
+export { query } from './query.js';
 export { 
   defineIngest, 
   streamingIngest, 
@@ -21,7 +21,7 @@ export {
   type IngestError,
   type CSVIngestOptions,
   type ParquetIngestOptions
-} from './ingest';
+} from './ingest.js';
 
 export {
   string,
@@ -41,7 +41,7 @@ export {
   json,
   ipv4,
   ipv6,
-} from './schema';
+} from './schema.js';
 
 export {
   stringParam,
@@ -51,7 +51,7 @@ export {
   dateParam,
   booleanParam,
   enumParam,
-} from './pipe';
+} from './pipe.js';
 
 export {
   count,
@@ -82,9 +82,9 @@ export {
   lead,
   firstValue,
   lastValue,
-} from './query';
+} from './query.js';
 
-export * from './types';
+export * from './types.js';
 
 // Helper to convert TinyKit parameters to Zod schema for tb.buildPipe()
-export { createZodSchemaFromParameters } from './client';
+export { createZodSchemaFromParameters } from './client.js';

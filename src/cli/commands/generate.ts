@@ -1,14 +1,21 @@
-import * as prompts from 'prompts';
-import { readdirSync, statSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import prompts from 'prompts';
+import {
+  readdirSync,
+  statSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  watch,
+} from 'fs';
 import { join, extname } from 'path';
-import { log } from '../utils/terminal';
-import { generateDatasourceFile, extractDatasourceName } from '../generators/datasource';
-import { generatePipeFile, extractPipeName } from '../generators/pipe';
-import { analyzeTypeScriptFiles, validateNaming } from '../utils/typescript-analyzer';
-import type { FileGenerationResult } from '../types';
+import { log } from '../utils/terminal.js';
+import { generateDatasourceFile, extractDatasourceName } from '../generators/datasource.js';
+import { generatePipeFile, extractPipeName } from '../generators/pipe.js';
+import { analyzeTypeScriptFiles, validateNaming } from '../utils/typescript-analyzer.js';
+import type { FileGenerationResult } from '../types.js';
 
 interface GenerateOptions {
-  file?: string;
+  file?: string[];
   dir: string;
   watch: boolean;
   dryRun: boolean;
@@ -20,7 +27,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
   let sourceFiles: string[] = [];
 
   // If no file specified, prompt user to find TypeScript files
-  if (!options.file) {
+  if (!options.file?.length) {
     const tsFiles = findTypeScriptFiles('./src');
 
     if (tsFiles.length === 0) {
@@ -65,7 +72,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
       sourceFiles = selectedFiles;
     }
   } else {
-    sourceFiles = [options.file];
+    sourceFiles = options.file;
   }
 
   // Validate source files exist
@@ -170,13 +177,65 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
 
     if (options.watch) {
       log.info('\n👀 Watching for changes... (Press Ctrl+C to stop)');
-      // TODO: Implement file watching
+      await watchSourceFiles(sourceFiles, options);
     }
 
   } catch (error) {
     log.error(`Generation failed: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
+}
+
+async function watchSourceFiles(
+  sourceFiles: string[],
+  options: GenerateOptions
+): Promise<void> {
+  let debounceTimer: NodeJS.Timeout | undefined;
+  let generating = false;
+  let regenerationPending = false;
+
+  const regenerate = async () => {
+    if (generating) {
+      regenerationPending = true;
+      return;
+    }
+
+    generating = true;
+    try {
+      do {
+        regenerationPending = false;
+        log.plain('');
+        log.info('Source changed. Regenerating...');
+        await generateCommand({ ...options, file: sourceFiles, watch: false });
+      } while (regenerationPending);
+    } finally {
+      generating = false;
+    }
+  };
+
+  const watchers = sourceFiles.map((file) =>
+    watch(file, () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      debounceTimer = setTimeout(() => void regenerate(), 100);
+    })
+  );
+
+  await new Promise<void>((resolve) => {
+    const stop = () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      watchers.forEach((watcher) => watcher.close());
+      process.off('SIGINT', stop);
+      process.off('SIGTERM', stop);
+      resolve();
+    };
+
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
+  });
 }
 
 function findTypeScriptFiles(dir: string): string[] {
@@ -279,4 +338,3 @@ export const getEventCountsPipe = definePipe({
   writeFileSync('./src/example.ts', exampleContent);
   log.success('Created example file: ./src/example.ts');
 }
-

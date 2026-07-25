@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ColumnDefinition, DataSourceConfig, SchemaDefinition } from './types';
+import type { ColumnDefinition, DataSourceConfig, SchemaDefinition } from './types.js';
 
 /**
  * Defines a String column for a Tinybird DataSource.

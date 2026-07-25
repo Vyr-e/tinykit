@@ -1,361 +1,292 @@
 #!/usr/bin/env node
 
-import { z } from 'zod';
-import { defineConfig, defineCommand, defineOptions } from 'zodest/config';
-import { processConfig } from 'zodest';
-import { generateCommand } from './commands/generate';
-import { initCommand } from './commands/init';
-import { validateCommand } from './commands/validate';
-import { queryCommand } from './commands/query';
-import { datasourceListCommand, datasourceInspectCommand, datasourceAnalyzeCommand, datasourceGenerateCommand, dependenciesCommand } from './commands/datasource';
-import { deployCommand, localCommand, devCommand, createCommand, pushCommand, pullCommand } from './commands/deploy';
-import { log, format } from './utils/terminal';
+import { Command, Option } from 'commander';
+import { generateCommand } from './commands/generate.js';
+import { initCommand } from './commands/init.js';
+import { validateCommand } from './commands/validate.js';
+import { queryCommand } from './commands/query.js';
+import {
+  datasourceListCommand,
+  datasourceInspectCommand,
+  datasourceAnalyzeCommand,
+  datasourceGenerateCommand,
+  dependenciesCommand,
+} from './commands/datasource.js';
+import {
+  deployCommand,
+  localCommand,
+  devCommand,
+  createCommand,
+  pushCommand,
+  pullCommand,
+} from './commands/deploy.js';
+import { log } from './utils/terminal.js';
 
-const globalOptions = defineOptions(
-  z.object({
-    verbose: z.boolean().default(false),
-    help: z.boolean().default(false),
-  }),
-  {
-    v: 'verbose',
-    h: 'help',
+const VERSION = '0.1.1';
+
+const program = new Command()
+  .name('tinykit')
+  .description(
+    'Type-safe Tinybird client and generator for functional TypeScript definitions'
+  )
+  .version(VERSION)
+  .option('-v, --verbose', 'enable verbose output')
+  .showHelpAfterError();
+
+function number(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Expected a number, received "${value}"`);
   }
-);
+  return parsed;
+}
 
-const config = defineConfig({
-  name: 'tinykit',
-  description: 'TypeSafe CLI for Tinybird - Generate datasources and pipes from functional definitions',
-  version: '0.1.0',
-  globalOptions,
-  commands: {
-    init: defineCommand({
-      description: 'Initialize a new TinyKit project with example files',
-      options: defineOptions(
-        z.object({
-          dir: z.string().default('./tinybird'),
-        }),
-        { d: 'dir' }
-      ),
-      action: initCommand,
-    }),
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
 
-    generate: defineCommand({
-      description: 'Generate Tinybird files from TypeScript definitions',
-      aliases: ['gen'],
-      options: defineOptions(
-        z.object({
-          file: z.string().optional(),
-          dir: z.string().default('./tinybird'),
-          watch: z.boolean().default(false),
-          dryRun: z.boolean().default(false),
-        }),
-        {
-          f: 'file',
-          d: 'dir',
-          w: 'watch',
-        }
-      ),
-      action: generateCommand,
-    }),
-
-    validate: defineCommand({
-      description: 'Validate generated Tinybird files',
-      options: defineOptions(
-        z.object({
-          dir: z.string().default('./tinybird'),
-        }),
-        { d: 'dir' }
-      ),
-      action: validateCommand,
-    }),
-
-    query: defineCommand({
-      description: 'Execute SQL queries against Tinybird',
-      aliases: ['sql'],
-      options: defineOptions(
-        z.object({
-          sql: z.string().optional(),
-          file: z.string().optional(),
-          pipe: z.string().optional(),
-          format: z.enum(['json', 'csv', 'human']).default('human'),
-          limit: z.number().optional(),
-          stats: z.boolean().default(true),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        {
-          s: 'sql',
-          f: 'file',
-          p: 'pipe',
-          l: 'limit',
-          t: 'token',
-          c: 'config',
-        }
-      ),
-      action: queryCommand,
-    }),
-
-    'datasource:list': defineCommand({
-      description: 'List all data sources',
-      options: defineOptions(
-        z.object({
-          format: z.enum(['json', 'csv', 'human']).default('human'),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { t: 'token', c: 'config' }
-      ),
-      action: datasourceListCommand,
-    }),
-
-    'datasource:inspect': defineCommand({
-      description: 'Inspect a data source',
-      options: defineOptions(
-        z.object({
-          name: z.string().optional(),
-          format: z.enum(['json', 'csv', 'human']).default('human'),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { n: 'name', t: 'token', c: 'config' }
-      ),
-      action: datasourceInspectCommand,
-    }),
-
-    'datasource:analyze': defineCommand({
-      description: 'Analyze a file or URL for data source creation',
-      options: defineOptions(
-        z.object({
-          file: z.string().optional(),
-          url: z.string().optional(),
-          sample_size: z.number().optional(),
-          format: z.enum(['json', 'csv', 'human']).default('human'),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { f: 'file', u: 'url', s: 'sample_size', t: 'token', c: 'config' }
-      ),
-      action: datasourceAnalyzeCommand,
-    }),
-
-    'datasource:generate': defineCommand({
-      description: 'Generate a data source from file or URL',
-      options: defineOptions(
-        z.object({
-          name: z.string().optional(),
-          file: z.string().optional(),
-          url: z.string().optional(),
-          sample_size: z.number().optional(),
-          format: z.enum(['json', 'csv', 'human']).default('human'),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { n: 'name', f: 'file', u: 'url', s: 'sample_size', t: 'token', c: 'config' }
-      ),
-      action: datasourceGenerateCommand,
-    }),
-
-    dependencies: defineCommand({
-      description: 'Show resource dependencies',
-      aliases: ['deps'],
-      options: defineOptions(
-        z.object({
-          format: z.enum(['json', 'csv', 'human']).default('human'),
-          token: z.string().optional(),
-          config: z.string().optional(),
-          match: z.string().optional(),
-          pipe: z.string().optional(),
-          no_deps: z.boolean().default(false),
-        }),
-        {
-          t: 'token',
-          c: 'config',
-          m: 'match',
-          p: 'pipe',
-        }
-      ),
-      action: dependenciesCommand,
-    }),
-
-    deploy: defineCommand({
-      description: 'Deploy project to Tinybird Cloud',
-      options: defineOptions(
-        z.object({
-          cloud: z.boolean().default(false),
-          dry_run: z.boolean().default(false),
-          force: z.boolean().default(false),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { t: 'token', c: 'config', f: 'force' }
-      ),
-      action: deployCommand,
-    }),
-
-    'local:start': defineCommand({
-      description: 'Start local Tinybird development environment',
-      options: defineOptions(
-        z.object({
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { t: 'token', c: 'config' }
-      ),
-      action: (options, args) => localCommand({ ...options, action: 'start' }, args),
-    }),
-
-    'local:stop': defineCommand({
-      description: 'Stop local Tinybird development environment',
-      options: defineOptions(
-        z.object({
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { t: 'token', c: 'config' }
-      ),
-      action: (options, args) => localCommand({ ...options, action: 'stop' }, args),
-    }),
-
-    'local:status': defineCommand({
-      description: 'Check local Tinybird development environment status',
-      options: defineOptions(
-        z.object({
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { t: 'token', c: 'config' }
-      ),
-      action: (options, args) => localCommand({ ...options, action: 'status' }, args),
-    }),
-
-    dev: defineCommand({
-      description: 'Start Tinybird development server',
-      options: defineOptions(
-        z.object({
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { t: 'token', c: 'config' }
-      ),
-      action: devCommand,
-    }),
-
-    create: defineCommand({
-      description: 'Create a new Tinybird project',
-      options: defineOptions(
-        z.object({
-          name: z.string().optional(),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { n: 'name', t: 'token', c: 'config' }
-      ),
-      action: createCommand,
-    }),
-
-    push: defineCommand({
-      description: 'Push resources to Tinybird',
-      options: defineOptions(
-        z.object({
-          force: z.boolean().default(false),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { f: 'force', t: 'token', c: 'config' }
-      ),
-      action: pushCommand,
-    }),
-
-    pull: defineCommand({
-      description: 'Pull resources from Tinybird',
-      options: defineOptions(
-        z.object({
-          force: z.boolean().default(false),
-          token: z.string().optional(),
-          config: z.string().optional(),
-        }),
-        { f: 'force', t: 'token', c: 'config' }
-      ),
-      action: pullCommand,
-    }),
-  },
-} as any);
-
-// Process CLI arguments
-try {
-  const result = processConfig(config, process.argv.slice(2));
-
-  if (result.globalOptions.help) {
-    console.log(generateHelpText());
-    process.exit(0);
+function logCommand(command: string): void {
+  if (program.opts<{ verbose?: boolean }>().verbose) {
+    log.dim(`Running command: ${command}`);
   }
+}
 
-  if (result.globalOptions.verbose) {
-    log.dim(`Running command: ${result._kind}`);
-  }
+program
+  .command('init')
+  .description('initialize a new TinyKit project with example files')
+  .option('-d, --dir <path>', 'project directory', './tinybird')
+  .action(async (options) => {
+    logCommand('init');
+    await initCommand(options);
+  });
 
-  // Execute the command
-  await result.command.action(result.options, result.args);
-} catch (error) {
-  if (error instanceof z.ZodError) {
-    log.error('Validation Error:');
-    error.issues.forEach(issue => {
-      log.plain(`  • ${issue.message}`);
+program
+  .command('generate')
+  .alias('gen')
+  .description('generate Tinybird files from TypeScript definitions')
+  .option(
+    '-f, --file <path>',
+    'TypeScript entry file (repeat for multiple entries)',
+    collect,
+    []
+  )
+  .option('-d, --dir <path>', 'output directory', './tinybird')
+  .option('-w, --watch', 'watch entry files for changes', false)
+  .option('--dry-run', 'print the generation result without writing files', false)
+  .action(async (options) => {
+    logCommand('generate');
+    await generateCommand(options);
+  });
+
+program
+  .command('validate')
+  .description('validate generated Tinybird files')
+  .option('-d, --dir <path>', 'Tinybird project directory', './tinybird')
+  .action(async (options) => {
+    logCommand('validate');
+    await validateCommand(options);
+  });
+
+program
+  .command('query')
+  .alias('sql')
+  .description('execute SQL queries against Tinybird')
+  .argument('[query...]', 'SQL query or endpoint parameters')
+  .option('-s, --sql <query>', 'SQL query')
+  .option('-f, --file <path>', 'SQL file')
+  .option('-p, --pipe <name>', 'endpoint name')
+  .addOption(
+    new Option('--format <format>', 'output format')
+      .choices(['json', 'csv', 'human'])
+      .default('human')
+  )
+  .option('-l, --limit <number>', 'row limit', number)
+  .option('--no-stats', 'hide query statistics')
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (query, options) => {
+    logCommand('query');
+    await queryCommand(options, query);
+  });
+
+program
+  .command('datasource:list')
+  .description('list all data sources')
+  .addOption(
+    new Option('--format <format>', 'output format')
+      .choices(['json', 'csv', 'human'])
+      .default('human')
+  )
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (options) => {
+    logCommand('datasource:list');
+    await datasourceListCommand(options, []);
+  });
+
+program
+  .command('datasource:inspect')
+  .description('inspect a data source')
+  .argument('[name]', 'data source name')
+  .option('-n, --name <name>', 'data source name')
+  .addOption(
+    new Option('--format <format>', 'output format')
+      .choices(['json', 'csv', 'human'])
+      .default('human')
+  )
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (name, options) => {
+    logCommand('datasource:inspect');
+    await datasourceInspectCommand(options, name ? [name] : []);
+  });
+
+program
+  .command('datasource:analyze')
+  .description('analyze a file or URL for data source creation')
+  .argument('[input]', 'file or URL')
+  .option('-f, --file <path>', 'input file')
+  .option('-u, --url <url>', 'input URL')
+  .option('-s, --sample-size <number>', 'sample size', number)
+  .addOption(
+    new Option('--format <format>', 'output format')
+      .choices(['json', 'csv', 'human'])
+      .default('human')
+  )
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (input, options) => {
+    logCommand('datasource:analyze');
+    await datasourceAnalyzeCommand(
+      { ...options, sample_size: options.sampleSize },
+      input ? [input] : []
+    );
+  });
+
+program
+  .command('datasource:generate')
+  .description('generate a data source from a file or URL')
+  .argument('[input]', 'file or URL')
+  .option('-n, --name <name>', 'data source name')
+  .option('-f, --file <path>', 'input file')
+  .option('-u, --url <url>', 'input URL')
+  .option('-s, --sample-size <number>', 'sample size', number)
+  .addOption(
+    new Option('--format <format>', 'output format')
+      .choices(['json', 'csv', 'human'])
+      .default('human')
+  )
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (input, options) => {
+    logCommand('datasource:generate');
+    await datasourceGenerateCommand(
+      { ...options, sample_size: options.sampleSize },
+      input ? [input] : []
+    );
+  });
+
+program
+  .command('dependencies')
+  .alias('deps')
+  .description('show resource dependencies')
+  .addOption(
+    new Option('--format <format>', 'output format')
+      .choices(['json', 'csv', 'human'])
+      .default('human')
+  )
+  .option('-m, --match <pattern>', 'resource pattern')
+  .option('-p, --pipe <name>', 'pipe name')
+  .option('--no-deps', 'exclude dependencies')
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (options) => {
+    logCommand('dependencies');
+    await dependenciesCommand(
+      { ...options, no_deps: options.deps === false },
+      []
+    );
+  });
+
+program
+  .command('deploy')
+  .description('deploy the project with the installed Tinybird CLI')
+  .option('--cloud', 'use Tinybird Cloud')
+  .option('--check', 'validate the deployment without applying it')
+  .option(
+    '--allow-destructive-operations',
+    'allow destructive schema changes'
+  )
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (options) => {
+    logCommand('deploy');
+    await deployCommand(options, []);
+  });
+
+for (const action of ['start', 'stop', 'status'] as const) {
+  program
+    .command(`local:${action}`)
+    .description(`${action} the local Tinybird development environment`)
+    .option('-t, --token <token>', 'Tinybird token')
+    .option('-c, --config <path>', 'TinyKit config file')
+    .action(async (options) => {
+      logCommand(`local:${action}`);
+      await localCommand({ ...options, action }, []);
     });
-  } else {
-    log.error(error instanceof Error ? error.message : String(error));
-  }
-  process.exit(1);
 }
 
-function generateHelpText(): string {
-  return `
-${format.bold('TinyKit')} ${format.dim('v0.1.0')}
-TypeSafe CLI for Tinybird - Generate datasources and pipes from functional definitions
+program
+  .command('dev')
+  .description('start the Tinybird development server')
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (options) => {
+    logCommand('dev');
+    await devCommand(options, []);
+  });
 
-${format.bold('Usage:')}
-  tinykit [global options] <command> [options]
+program
+  .command('create')
+  .description('create a Tinybird project with the installed Tinybird CLI')
+  .argument('[name]', 'project name')
+  .option('-n, --name <name>', 'project name')
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (name, options) => {
+    logCommand('create');
+    await createCommand(options, name ? [name] : []);
+  });
 
-${format.bold('Global Options:')}
-  -v, --verbose    Enable verbose output
-  -h, --help       Show this help message
+program
+  .command('push')
+  .description('push resources with the installed Tinybird CLI')
+  .argument('[resources...]', 'resource names')
+  .option('-f, --force', 'force the operation')
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (resources, options) => {
+    logCommand('push');
+    await pushCommand(options, resources);
+  });
 
-${format.bold('Commands:')}
-  init                    Initialize a new TinyKit project with example files
-  generate, gen           Generate Tinybird files from TypeScript definitions
-  validate                Validate generated Tinybird files
-  query, sql              Execute SQL queries against Tinybird
-  datasource:list         List all data sources
-  datasource:inspect      Inspect a data source
-  datasource:analyze      Analyze a file or URL for data source creation
-  datasource:generate     Generate a data source from file or URL
-  dependencies, deps      Show resource dependencies
-  deploy                  Deploy project to Tinybird Cloud
-  local:start             Start local Tinybird development environment
-  local:stop              Stop local Tinybird development environment
-  local:status            Check local development environment status
-  dev                     Start Tinybird development server
-  create                  Create a new Tinybird project
-  push                    Push resources to Tinybird
-  pull                    Pull resources from Tinybird
+program
+  .command('pull')
+  .description('pull resources with the installed Tinybird CLI')
+  .argument('[resources...]', 'resource names')
+  .option('-f, --force', 'force the operation')
+  .option('-t, --token <token>', 'Tinybird token')
+  .option('-c, --config <path>', 'TinyKit config file')
+  .action(async (resources, options) => {
+    logCommand('pull');
+    await pullCommand(options, resources);
+  });
 
-${format.bold('Examples:')}
-  tinykit init --dir ./my-project
-  tinykit generate --file ./src/pipes.ts --dir ./tinybird
-  tinykit gen --watch --dry-run
-  tinykit validate --dir ./tinybird
-  tinykit query "SELECT count() FROM events"
-  tinykit sql --file query.sql --format json
-  tinykit datasource:list --format human
-  tinykit datasource:inspect events_v1
-  tinykit dependencies --match "events*"
-  tinykit local:start
-  tinykit dev
-  tinykit deploy --cloud
-  tinykit push datasource1 pipe1
-
-For command-specific help, use: tinykit <command> --help
-`;
+try {
+  await program.parseAsync(process.argv);
+} catch (error) {
+  log.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
 }
 
-export { config };
+export { program };

@@ -15,9 +15,9 @@ A TypeScript library that provides a functional, composable query API for buildi
 
 ## Prerequisites
 
-### Local Tinybird Installation Required
+### Tinybird CLI for deployment
 
-TinyKit requires a local Tinybird installation for development, deployment, and testing. You cannot run TinyKit without the Tinybird CLI tools.
+TinyKit's client and file generator run without a local Tinybird installation. Install Tinybird's CLI only when you want TinyKit to proxy deployment or workspace commands.
 
 #### Install Tinybird CLI
 
@@ -74,8 +74,7 @@ tb server start
 ## Installation
 
 ```bash
-bun add zod
-# The library is included in this repository
+bun add @vyr-e/tinykit
 ```
 
 ## Quick Start
@@ -85,7 +84,7 @@ For a detailed guide on how to get started, see the [Usage Guide](./usage.md).
 ### 1. Define Your Schema and DataSource
 
 ```typescript
-import { defineSchema, defineDataSource, string, int64 } from 'tinykit';
+import { defineSchema, defineDataSource, string, int64 } from '@vyr-e/tinykit';
 
 const eventsSchema = defineSchema({
   id: string('id'),
@@ -110,7 +109,7 @@ TinyKit offers two approaches for building pipes: the type-safe query builder an
 #### Query Builder Approach
 
 ```typescript
-import { definePipe, defineParameters, stringParam, int64Param, query, count, param } from 'tinykit';
+import { definePipe, defineParameters, stringParam, int64Param, query, count, param } from '@vyr-e/tinykit';
 
 const getEventsByUser = definePipe({
   name: 'get_events_by_user__v1',
@@ -142,7 +141,7 @@ const complexAnalyticsPipe = definePipe({
     startDate: stringParam('startDate', { required: true }),
     cohortSize: int64Param('cohortSize', { default: 1000 }),
   }),
-}).raw((params) => `
+}).raw(`
   WITH user_cohorts AS (
     SELECT 
       userId,
@@ -167,7 +166,7 @@ const complexAnalyticsPipe = definePipe({
 ### 3. Setup Client and Execute Queries
 
 ```typescript
-import { Tinybird } from 'tinykit';
+import { Tinybird } from '@vyr-e/tinykit';
 import { z } from 'zod';
 
 const tb = new Tinybird({
@@ -193,7 +192,7 @@ console.log(result.data); // Array of user events
 ### 4. Data Ingestion
 
 ```typescript
-import { defineIngest } from 'tinykit';
+import { defineIngest } from '@vyr-e/tinykit';
 
 const eventsIngest = defineIngest({
   datasource: 'events__v1',
@@ -219,7 +218,7 @@ await ingest([
 TinyKit supports all major ClickHouse/Tinybird column types:
 
 ```typescript
-import { string, int32, int64, float64, boolean, dateTime, date, uuid, array, map, tuple, nested, lowCardinality, nullable, json, ipv4, ipv6 } from 'tinykit';
+import { string, int32, int64, float64, boolean, dateTime, date, uuid, array, map, tuple, nested, lowCardinality, nullable, json, ipv4, ipv6 } from '@vyr-e/tinykit';
 
 const schema = defineSchema({
   id: string('id'),
@@ -239,7 +238,7 @@ const schema = defineSchema({
 Build complex queries with type-safe functions:
 
 ```typescript
-import { count, sum, avg, min, max, timeGranularity, fromUnixTimestamp64Milli, conditional, rowNumber, lag, firstValue } from 'tinykit';
+import { count, sum, avg, min, max, timeGranularity, fromUnixTimestamp64Milli, conditional, rowNumber, lag, firstValue } from '@vyr-e/tinykit';
 
 const analyticsQuery = query(schema)
   .selectRaw(`
@@ -258,7 +257,7 @@ const analyticsQuery = query(schema)
 Define typed parameters for your pipes:
 
 ```typescript
-import { stringParam, int64Param, float64Param, dateTimeParam, booleanParam, enumParam } from 'tinykit';
+import { stringParam, int64Param, float64Param, dateTimeParam, booleanParam, enumParam } from '@vyr-e/tinykit';
 
 const params = defineParameters({
   userId: stringParam('userId', { required: true }),
@@ -277,10 +276,7 @@ TinyKit provides a comprehensive CLI for project management and Tinybird integra
 
 ```bash
 # Initialize a new TinyKit project with interactive setup
-tinykit init [directory]
-
-# Initialize with specific name
-tinykit init --name my-analytics-project ./my-project
+tinykit init --dir ./my-project
 ```
 
 ### Code Generation
@@ -295,8 +291,8 @@ tinykit generate --watch
 # Dry run to see what would be generated
 tinykit generate --dry-run
 
-# Generate from specific file
-tinykit generate --file src/analytics.ts
+# Generate from one or more explicit TypeScript entry files
+tinykit generate --file src/schema.ts --file src/pipes.ts
 ```
 
 ### Deployment Commands
@@ -309,11 +305,11 @@ tinykit deploy
 tinykit push datasources/events.datasource
 tinykit push pipes/analytics.pipe
 
-# Deploy with force (overwrite existing)
-tinykit deploy --force
+# Validate a deployment without applying it
+tinykit deploy --check
 
-# Dry run deployment
-tinykit deploy --dry-run
+# Explicitly allow destructive schema changes
+tinykit deploy --allow-destructive-operations
 
 # Pull resources from Tinybird
 tinykit pull
@@ -323,13 +319,13 @@ tinykit pull
 
 ```bash
 # Start local Tinybird development server
-tinykit local start
+tinykit local:start
 
 # Stop local development server
-tinykit local stop
+tinykit local:stop
 
 # Check local server status
-tinykit local status
+tinykit local:status
 
 # Start development mode with auto-reload
 tinykit dev
@@ -427,7 +423,7 @@ The example demonstrates:
 
 ### Prerequisites
 
-- Node.js 18+ or Bun
+- Node.js 20+ or Bun
 - Tinybird CLI installed and authenticated
 - Active Tinybird workspace
 
@@ -520,7 +516,7 @@ tinykit generate --dir ./custom-tinybird-output
 ```bash
 # Use different tokens for different environments
 TINYBIRD_TOKEN=$STAGING_TOKEN tinykit deploy
-TINYBIRD_TOKEN=$PROD_TOKEN tinykit deploy --force
+TINYBIRD_TOKEN=$PROD_TOKEN tinykit deploy --allow-destructive-operations
 ```
 
 #### Batch Operations

@@ -1,5 +1,5 @@
 export interface GenerateOptions {
-  file?: string;
+  file?: string[];
   dir: string;
   watch?: boolean;
   dryRun?: boolean;
