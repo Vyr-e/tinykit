@@ -308,6 +308,28 @@ const getUserEvents = tb.pipe({
 const result = await getUserEvents({ userId: 'user-123', limit: 50 });
 ```
 
+For a registered pipe created with `.raw(...)`, `data` may be omitted. TinyKit
+infers the row from the final `SELECT` projection and the pipe's source schema:
+
+```typescript
+const getAnalytics = tb.pipe({
+  pipe: 'complex_analytics__v1',
+});
+
+const result = await getAnalytics({
+  tenantId: 'tenant-123',
+  startDate: '2025-01-01',
+});
+
+result.data[0]?.active_users; // number
+```
+
+The SQL inference is deliberately conservative. It understands direct schema
+columns, top-level aliases, nested arguments, common ClickHouse aggregates,
+casts, literals, and date conversions. Unrecognized expressions are
+`unknown`. Supply `data: z.object(...)` to override inference and validate the
+response at runtime.
+
 ### `.ingest(ingestDef)`
 
 Creates a function to ingest data into a Tinybird DataSource.

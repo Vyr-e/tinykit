@@ -156,14 +156,18 @@ export type InferParametersWithDefaults<T extends QueryParameters> = {
   [K in keyof T]: z.infer<T[K]['schema']>;
 };
 
+declare const pipeOutputType: unique symbol;
+
 /**
  * Configuration for a Tinybird Pipe.
  * @template TParams The parameters definition for the Pipe.
  * @template TName The name of the Pipe.
+ * @template TOutput The inferred output row for the Pipe.
  */
 export type PipeConfig<
   TParams extends QueryParameters = QueryParameters,
-  TName extends string = string
+  TName extends string = string,
+  TOutput = unknown
 > = {
   /** The name of the Pipe in Tinybird. */
   name: TName;
@@ -177,7 +181,18 @@ export type PipeConfig<
   isRaw?: boolean;
   /** The raw SQL string, if the pipe was defined with .raw(). */
   rawSql?: string;
+  /** Carries the output row through the type system without adding runtime data. */
+  readonly [pipeOutputType]?: TOutput;
 };
+
+/** Infers the output row carried by a Pipe configuration. */
+export type InferPipeOutput<TPipe> = TPipe extends PipeConfig<
+  QueryParameters,
+  string,
+  infer TOutput
+>
+  ? TOutput
+  : never;
 
 /**
  * Represents the successful result of a Tinybird Pipe query.
@@ -206,27 +221,362 @@ export type PipeErrorResponse = {
   code?: string;
 };
 
+type SQLWhitespace = ' ' | '\n' | '\r' | '\t';
+type SQLQuote = "'" | '"' | '`';
+
+type TrimSQLLeft<T extends string> =
+  T extends `${SQLWhitespace}${infer Rest}` ? TrimSQLLeft<Rest> : T;
+
+type TrimSQLRight<T extends string> =
+  T extends `${infer Rest}${SQLWhitespace}` ? TrimSQLRight<Rest> : T;
+
+type TrimSQL<T extends string> = TrimSQLLeft<TrimSQLRight<T>>;
+
+type SplitAfterSelect<T extends string> =
+  T extends `${infer _Before}SELECT ${infer After}`
+    ? After
+    : T extends `${infer _Before}select ${infer After}`
+    ? After
+    : T extends `${infer _Before}Select ${infer After}`
+    ? After
+    : T extends `${infer _Before}SELECT\n${infer After}`
+    ? After
+    : T extends `${infer _Before}select\n${infer After}`
+    ? After
+    : T extends `${infer _Before}Select\n${infer After}`
+    ? After
+    : never;
+
+type AfterLastSelect<T extends string> = [
+  SplitAfterSelect<T>
+] extends [never]
+  ? never
+  : SplitAfterSelect<T> extends infer Rest extends string
+  ? [SplitAfterSelect<Rest>] extends [never]
+    ? Rest
+    : AfterLastSelect<Rest>
+  : never;
+
+type ProjectionBeforeFrom<T extends string> =
+  T extends `${infer Projection} FROM ${string}`
+    ? TrimSQL<Projection>
+    : T extends `${infer Projection} from ${string}`
+    ? TrimSQL<Projection>
+    : T extends `${infer Projection} From ${string}`
+    ? TrimSQL<Projection>
+    : T extends `${infer Projection}\nFROM ${string}`
+    ? TrimSQL<Projection>
+    : T extends `${infer Projection}\nfrom ${string}`
+    ? TrimSQL<Projection>
+    : T extends `${infer Projection}\nFrom ${string}`
+    ? TrimSQL<Projection>
+    : never;
+
+type SQLProjection<T extends string> = AfterLastSelect<T> extends infer Rest
+  extends string
+  ? ProjectionBeforeFrom<Rest>
+  : never;
+
+type PopSQLStack<TStack extends readonly unknown[]> =
+  TStack extends readonly [unknown, ...infer Rest] ? Rest : [];
+
+type PushSQLColumn<
+  TColumns extends readonly string[],
+  TColumn extends string
+> = TrimSQL<TColumn> extends ''
+  ? TColumns
+  : [...TColumns, TrimSQL<TColumn>];
+
 /**
- * (Experimental) Infers a TypeScript return type from a raw SQL SELECT statement.
- * @template T The SQL string.
+ * Splits a SELECT projection only at top-level commas. Commas inside functions,
+ * arrays, tuples, template expressions, and quoted strings remain intact.
  */
-export type InferSQLReturnType<T extends string> =
-  T extends `SELECT ${infer Columns} FROM ${string}`
-    ? ParseColumns<Columns>
+type SplitSQLColumns<
+  TInput extends string,
+  TCurrent extends string = '',
+  TColumns extends readonly string[] = [],
+  TStack extends readonly unknown[] = [],
+  TQuote extends SQLQuote | '' = ''
+> = TInput extends `${infer Character}${infer Rest}`
+  ? TQuote extends SQLQuote
+    ? Character extends TQuote
+      ? SplitSQLColumns<
+          Rest,
+          `${TCurrent}${Character}`,
+          TColumns,
+          TStack,
+          ''
+        >
+      : SplitSQLColumns<
+          Rest,
+          `${TCurrent}${Character}`,
+          TColumns,
+          TStack,
+          TQuote
+        >
+    : Character extends SQLQuote
+    ? SplitSQLColumns<
+        Rest,
+        `${TCurrent}${Character}`,
+        TColumns,
+        TStack,
+        Character
+      >
+    : Character extends '(' | '[' | '{'
+    ? SplitSQLColumns<
+        Rest,
+        `${TCurrent}${Character}`,
+        TColumns,
+        [unknown, ...TStack],
+        ''
+      >
+    : Character extends ')' | ']' | '}'
+    ? SplitSQLColumns<
+        Rest,
+        `${TCurrent}${Character}`,
+        TColumns,
+        PopSQLStack<TStack>,
+        ''
+      >
+    : Character extends ','
+    ? TStack extends readonly []
+      ? SplitSQLColumns<Rest, '', PushSQLColumn<TColumns, TCurrent>, [], ''>
+      : SplitSQLColumns<
+          Rest,
+          `${TCurrent}${Character}`,
+          TColumns,
+          TStack,
+          ''
+        >
+    : SplitSQLColumns<
+        Rest,
+        `${TCurrent}${Character}`,
+        TColumns,
+        TStack,
+        ''
+      >
+  : PushSQLColumn<TColumns, TCurrent>;
+
+/**
+ * Finds a top-level alias while ignoring AS tokens inside functions such as
+ * CAST(value AS UInt64).
+ */
+type SplitSQLAlias<
+  TInput extends string,
+  TCurrent extends string = '',
+  TStack extends readonly unknown[] = [],
+  TQuote extends SQLQuote | '' = ''
+> = TQuote extends ''
+  ? TStack extends readonly []
+    ? TInput extends ` AS ${infer Alias}`
+      ? [TrimSQL<TCurrent>, TrimSQL<Alias>]
+      : TInput extends ` as ${infer Alias}`
+      ? [TrimSQL<TCurrent>, TrimSQL<Alias>]
+      : TInput extends ` As ${infer Alias}`
+      ? [TrimSQL<TCurrent>, TrimSQL<Alias>]
+      : TInput extends ` aS ${infer Alias}`
+      ? [TrimSQL<TCurrent>, TrimSQL<Alias>]
+      : SplitSQLAliasCharacter<TInput, TCurrent, TStack, TQuote>
+    : SplitSQLAliasCharacter<TInput, TCurrent, TStack, TQuote>
+  : SplitSQLAliasCharacter<TInput, TCurrent, TStack, TQuote>;
+
+type SplitSQLAliasCharacter<
+  TInput extends string,
+  TCurrent extends string,
+  TStack extends readonly unknown[],
+  TQuote extends SQLQuote | ''
+> = TInput extends `${infer Character}${infer Rest}`
+  ? TQuote extends SQLQuote
+    ? Character extends TQuote
+      ? SplitSQLAlias<Rest, `${TCurrent}${Character}`, TStack, ''>
+      : SplitSQLAlias<Rest, `${TCurrent}${Character}`, TStack, TQuote>
+    : Character extends SQLQuote
+    ? SplitSQLAlias<Rest, `${TCurrent}${Character}`, TStack, Character>
+    : Character extends '(' | '[' | '{'
+    ? SplitSQLAlias<
+        Rest,
+        `${TCurrent}${Character}`,
+        [unknown, ...TStack],
+        ''
+      >
+    : Character extends ')' | ']' | '}'
+    ? SplitSQLAlias<
+        Rest,
+        `${TCurrent}${Character}`,
+        PopSQLStack<TStack>,
+        ''
+      >
+    : SplitSQLAlias<Rest, `${TCurrent}${Character}`, TStack, ''>
+  : [TrimSQL<TCurrent>, never];
+
+type UnquoteSQLIdentifier<T extends string> =
+  T extends `"${infer Identifier}"`
+    ? Identifier
+    : T extends `'${infer Identifier}'`
+    ? Identifier
+    : T extends `\`${infer Identifier}\``
+    ? Identifier
+    : T;
+
+type LastSQLIdentifier<T extends string> =
+  T extends `${infer _Prefix}.${infer Rest}` ? LastSQLIdentifier<Rest> : T;
+
+type SQLColumnExpression<TColumn extends string> =
+  SplitSQLAlias<TrimSQL<TColumn>>[0];
+
+type SQLColumnName<TColumn extends string> =
+  SplitSQLAlias<TrimSQL<TColumn>> extends [
+    infer Expression extends string,
+    infer Alias
+  ]
+    ? [Alias] extends [never]
+      ? UnquoteSQLIdentifier<LastSQLIdentifier<TrimSQL<Expression>>>
+      : Alias extends string
+      ? UnquoteSQLIdentifier<TrimSQL<Alias>>
+      : never
+    : never;
+
+type InferSQLTypeName<TType extends string> =
+  Lowercase<TrimSQL<TType>> extends `nullable(${infer Inner})`
+    ? InferSQLTypeName<Inner> | null
+    : Lowercase<TrimSQL<TType>> extends `array(${infer Inner})`
+    ? InferSQLTypeName<Inner>[]
+    : Lowercase<TrimSQL<TType>> extends
+        | 'string'
+        | `fixedstring(${string})`
+        | 'uuid'
+        | 'ipv4'
+        | 'ipv6'
+        | `enum${string}`
+        | 'date'
+        | 'datetime'
+        | `datetime64${string}`
+    ? string
+    : Lowercase<TrimSQL<TType>> extends
+        | `int${string}`
+        | `uint${string}`
+        | `float${string}`
+        | `decimal${string}`
+    ? number
+    : Lowercase<TrimSQL<TType>> extends 'bool' | 'boolean'
+    ? boolean
     : unknown;
 
-type ParseColumns<T extends string> = T extends `${infer Col}, ${infer Rest}`
-  ? { [K in ParseColumnName<Col>]: ParseColumnType<Col> } & ParseColumns<Rest>
-  : { [K in ParseColumnName<T>]: ParseColumnType<T> };
-
-type ParseColumnName<T extends string> = T extends `${string} as ${infer Alias}`
-  ? Alias
-  : T extends `${infer Name}(${string})`
-  ? Name
-  : T;
-
-type ParseColumnType<T extends string> = T extends `count(${string})`
+type InferSQLExpressionType<
+  TExpression extends string,
+  TSource extends Record<string, unknown>
+> = Lowercase<TrimSQL<TExpression>> extends `cast(${string} as ${infer Type})`
+  ? InferSQLTypeName<Type>
+  : Lowercase<TrimSQL<TExpression>> extends
+      | `count(${string})`
+      | `countdistinct(${string})`
+      | `uniq${string}(${string})`
+      | `sum(${string})`
+      | `sumif(${string})`
+      | `avg(${string})`
+      | `avgif(${string})`
+      | `quantile${string}(${string})`
   ? number
-  : T extends `${string}Distinct(${string})`
+  : Lowercase<TrimSQL<TExpression>> extends
+      | `toint${string}(${string})`
+      | `touint${string}(${string})`
+      | `tofloat${string}(${string})`
+      | `todecimal${string}(${string})`
+      | `tounixtimestamp${string}(${string})`
+      | `datediff(${string})`
+      | `length(${string})`
   ? number
-  : string;
+  : Lowercase<TrimSQL<TExpression>> extends
+      | `tostring(${string})`
+      | `lower(${string})`
+      | `upper(${string})`
+      | `concat(${string})`
+      | `formatdatetime(${string})`
+      | `touuid(${string})`
+      | `todate(${string})`
+      | `todatetime${string}(${string})`
+      | `tostartof${string}(${string})`
+  ? string
+  : Lowercase<TrimSQL<TExpression>> extends
+      | `tobool(${string})`
+      | `isnull(${string})`
+      | `isnotnull(${string})`
+  ? boolean
+  : TrimSQL<TExpression> extends `'${string}'` | `"${string}"`
+  ? string
+  : Lowercase<TrimSQL<TExpression>> extends 'true' | 'false'
+  ? boolean
+  : Lowercase<TrimSQL<TExpression>> extends 'null'
+  ? null
+  : TrimSQL<TExpression> extends `${number}`
+  ? number
+  : UnquoteSQLIdentifier<
+      LastSQLIdentifier<TrimSQL<TExpression>>
+    > extends infer SourceKey
+  ? SourceKey extends keyof TSource
+    ? TSource[SourceKey]
+    : unknown
+  : unknown;
+
+type SQLColumnRecord<
+  TColumn extends string,
+  TSource extends Record<string, unknown>
+> = TrimSQL<TColumn> extends '*'
+  ? TSource
+  : SQLColumnName<TColumn> extends infer Name extends string
+  ? Name extends ''
+    ? Record<string, unknown>
+    : {
+        [Key in Name]: InferSQLExpressionType<
+          SQLColumnExpression<TColumn>,
+          TSource
+        >;
+      }
+  : Record<string, unknown>;
+
+type Simplify<T> = { [Key in keyof T]: T[Key] };
+
+type InferSQLColumns<
+  TColumns extends readonly string[],
+  TSource extends Record<string, unknown>,
+  TResult = {}
+> = TColumns extends readonly [
+  infer Column extends string,
+  ...infer Rest extends string[]
+]
+  ? InferSQLColumns<Rest, TSource, TResult & SQLColumnRecord<Column, TSource>>
+  : Simplify<TResult>;
+
+type InferSQLProjection<
+  TProjection,
+  TSource extends Record<string, unknown>
+> = [TProjection] extends [never]
+  ? Record<string, unknown>
+  : TProjection extends string
+  ? SplitSQLColumns<TProjection> extends infer Columns extends string[]
+    ? Columns extends []
+      ? Record<string, unknown>
+      : InferSQLColumns<Columns, TSource>
+    : Record<string, unknown>
+  : Record<string, unknown>;
+
+/**
+ * Conservatively infers a row type from the final SELECT projection in a raw
+ * SQL statement.
+ *
+ * It understands top-level aliases, nested function arguments, source-schema
+ * columns, common ClickHouse aggregates, casts, literals, and date conversion
+ * functions. Anything it cannot prove is `unknown`, never a guessed scalar.
+ *
+ * This is static inference only. Pass a Zod `data` schema to `Tinybird.pipe`
+ * when runtime response validation is required.
+ *
+ * @template TSQL The literal SQL string.
+ * @template TSource The source row used to resolve direct column references.
+ */
+export type InferSQLReturnType<
+  TSQL extends string,
+  TSource extends Record<string, unknown> = Record<string, unknown>
+> = string extends TSQL
+  ? Record<string, unknown>
+  : InferSQLProjection<SQLProjection<TSQL>, TSource>;

@@ -6,6 +6,7 @@ import type {
   InferSchemaType,
   DataSourceConfig,
   PipeConfig,
+  InferPipeOutput,
 } from './types.js';
 import {
   type PipeErrorResponse,
@@ -109,8 +110,8 @@ type FindPipeByName<
   [K in keyof TPipes]: TPipes[K] extends { name: TName } ? TPipes[K] : never;
 }[keyof TPipes];
 
-type PipeResponse<TData extends z.ZodSchema<any>> = Promise<{
-  data: z.output<TData>[];
+type PipeResponse<TRow> = Promise<{
+  data: TRow[];
   meta: any[];
   statistics?: any;
 }>;
@@ -121,10 +122,34 @@ type RequiredKeys<T extends object> = {
 
 type PipeExecutor<
   TParameters extends QueryParameters,
-  TData extends z.ZodSchema<any>
+  TRow
 > = [RequiredKeys<InferParametersType<TParameters>>] extends [never]
-  ? (params?: InferParametersType<TParameters>) => PipeResponse<TData>
-  : (params: InferParametersType<TParameters>) => PipeResponse<TData>;
+  ? (params?: InferParametersType<TParameters>) => PipeResponse<TRow>
+  : (params: InferParametersType<TParameters>) => PipeResponse<TRow>;
+
+type ConfiguredPipeExecutor<TPipe, TRow> = TPipe extends {
+  parameters: infer TParameters;
+}
+  ? TParameters extends QueryParameters
+    ? PipeExecutor<TParameters, TRow>
+    : () => PipeResponse<TRow>
+  : () => PipeResponse<TRow>;
+
+type IsUnknown<T> = unknown extends T
+  ? [keyof T] extends [never]
+    ? true
+    : false
+  : false;
+
+type ExtractPipeNamesWithInferredOutput<TPipes extends Record<string, any>> = {
+  [K in keyof TPipes]: TPipes[K] extends {
+    name: infer TName extends string;
+  }
+    ? IsUnknown<InferPipeOutput<TPipes[K]>> extends true
+      ? never
+      : TName
+    : never;
+}[keyof TPipes];
 
 type ExtractDatasourceNames<T extends Record<string, any>> = {
   [K in keyof T]: T[K] extends { name: infer N extends string } ? N : never;
@@ -367,11 +392,25 @@ export class Tinybird<
         revalidate?: number;
       };
     };
-  }): FindPipeByName<TName, TPipes> extends { parameters: infer TParams }
-    ? TParams extends QueryParameters
-      ? PipeExecutor<TParams, TData>
-      : () => PipeResponse<TData>
-    : () => PipeResponse<TData>;
+  }): ConfiguredPipeExecutor<
+    FindPipeByName<TName, TPipes>,
+    z.output<TData>
+  >;
+
+  public pipe<TName extends ExtractPipeNamesWithInferredOutput<TPipes>>(req: {
+    pipe: TName;
+    data?: never;
+    parameters?: never;
+    opts?: {
+      cache?: RequestCache;
+      next?: {
+        revalidate?: number;
+      };
+    };
+  }): ConfiguredPipeExecutor<
+    FindPipeByName<TName, TPipes>,
+    InferPipeOutput<FindPipeByName<TName, TPipes>>
+  >;
 
   public pipe<
     TData extends z.ZodSchema<any>,
@@ -387,25 +426,25 @@ export class Tinybird<
       };
     };
   }): TParameters extends QueryParameters
-    ? PipeExecutor<TParameters, TData>
+    ? PipeExecutor<TParameters, z.output<TData>>
     : TParameters extends z.ZodSchema<any>
-    ? (params: z.input<TParameters>) => PipeResponse<TData>
-    : () => PipeResponse<TData>;
+    ? (params: z.input<TParameters>) => PipeResponse<z.output<TData>>
+    : () => PipeResponse<z.output<TData>>;
 
   public pipe<
-    TData extends z.ZodSchema<any>,
+    TData extends z.ZodSchema<any> = z.ZodTypeAny,
     TParameters extends QueryParameters | z.ZodSchema<any> = any
   >(req: {
     pipe: string;
     parameters?: TParameters;
-    data: TData;
+    data?: TData;
     opts?: {
       cache?: RequestCache;
       next?: {
         revalidate?: number;
       };
     };
-  }): (params?: unknown) => PipeResponse<TData> {
+  }): (params?: unknown) => PipeResponse<unknown> {
     return async (params?: unknown) => {
       let validatedParams: Record<string, unknown> | undefined;
       let pipeDefinition: PipeConfig<QueryParameters> | undefined;
@@ -465,7 +504,9 @@ export class Tinybird<
 
       const outputSchema = pipeResponseWithoutData.setKey(
         'data',
-        z.array(req.data)
+        req.data
+          ? z.array(req.data)
+          : z.array(z.record(z.unknown()))
       );
       const validatedResponse = outputSchema.safeParse(res);
       if (!validatedResponse.success) {

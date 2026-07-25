@@ -5,6 +5,8 @@ import type {
   PipeConfig,
   InferParametersType,
   InferParametersWithDefaults,
+  InferSchemaType,
+  InferSQLReturnType,
   SchemaDefinition,
 } from './types.js';
 import type { QueryBuilder } from './query.js';
@@ -318,7 +320,7 @@ export class PipeBuilder<
       q: QueryBuilder<TSchema>,
       params: InferParametersWithDefaults<TParams>
     ) => QueryBuilder<TSchema>
-  ): PipeConfig<TParams, TName> {
+  ): PipeConfig<TParams, TName, unknown> {
     return {
       name: this.config.name,
       version: this.config.version,
@@ -337,7 +339,13 @@ export class PipeBuilder<
    * @param sql The raw SQL string for the pipe.
    * @returns A Pipe configuration object.
    */
-  raw(sql: string): PipeConfig<TParams, TName> {
+  raw<const TSQL extends string>(
+    sql: TSQL
+  ): PipeConfig<
+    TParams,
+    TName,
+    InferSQLReturnType<TSQL, InferSchemaType<TSchema>>
+  > {
     return {
       name: this.config.name,
       version: this.config.version,

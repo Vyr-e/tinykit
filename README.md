@@ -163,6 +163,11 @@ const complexAnalyticsPipe = definePipe({
 `);
 ```
 
+Raw SQL literals carry a conservatively inferred output row. Direct source
+columns use the declared schema, common ClickHouse aggregates and casts use
+their known scalar types, and expressions TinyKit cannot prove become
+`unknown`.
+
 ### 3. Setup Client and Execute Queries
 
 ```typescript
@@ -172,7 +177,7 @@ import { z } from 'zod';
 const tb = new Tinybird({
   token: process.env.TINYBIRD_TOKEN,
   datasources: { events: eventsDataSource },
-  pipes: { getEventsByUser },
+  pipes: { getEventsByUser, complexAnalyticsPipe },
 });
 
 const getUserEvents = tb.pipe({
@@ -187,7 +192,22 @@ const getUserEvents = tb.pipe({
 
 const result = await getUserEvents({ userId: 'user-123' });
 console.log(result.data); // Array of user events
+
+// Registered raw pipes can use their inferred output without repeating a schema.
+const getComplexAnalytics = tb.pipe({
+  pipe: 'complex_analytics__v1',
+});
+
+const analytics = await getComplexAnalytics({
+  tenantId: 'tenant-123',
+  startDate: '2025-01-01',
+});
+
+analytics.data[0]?.active_users; // number
 ```
+
+SQL inference is static only. Pass `data: z.object(...)` when runtime response
+validation is required; the explicit Zod schema overrides the inferred row.
 
 ### 4. Data Ingestion
 
