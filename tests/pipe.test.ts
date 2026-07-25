@@ -12,6 +12,7 @@ import {
   int64,
   count,
 } from '../src';
+import { generatePipeFile } from '../src/cli/generators/pipe';
 
 describe('Pipe Definition', () => {
   const testSchema = defineSchema({
@@ -93,9 +94,11 @@ describe('Pipe Definition', () => {
       limit: 50,
     });
 
-    expect(sql).toContain('VERSION 1');
-    expect(sql).toContain('NODE endpoint');
-    expect(sql).toContain('SQL >');
+    const file = generatePipeFile(pipe);
+    expect(file).toContain('VERSION 1');
+    expect(file).toContain('NODE endpoint');
+    expect(file).toContain('SQL >');
+
     expect(sql).toContain('SELECT id, event');
     expect(sql).toContain('FROM events__v1');
     expect(sql).toContain(

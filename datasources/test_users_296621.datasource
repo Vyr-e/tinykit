@@ -1,0 +1,7 @@
+SCHEMA >
+    `id` String `json:$.id`,
+    `name` String `json:$.name`,
+    `created_at` DateTime64(3) `json:$.created_at`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "created_at,id"

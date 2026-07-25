@@ -254,9 +254,9 @@ export const privacyTests = {
   
   // Descriptor access attempts
   getPropertyDescriptor: {
-    datasources: Object.getPropertyDescriptor(client, 'datasources'),
-    pipes: Object.getPropertyDescriptor(client, 'pipes'),
-    config: Object.getPropertyDescriptor(client, 'config')
+    datasources: Object.getOwnPropertyDescriptor(client, 'datasources'),
+    pipes: Object.getOwnPropertyDescriptor(client, 'pipes'),
+    config: Object.getOwnPropertyDescriptor(client, 'config')
   }
 };
 `;
@@ -323,46 +323,41 @@ export const privacyTests = {
     const testFile = join(testDir, 'symbol-edge-cases.ts');
 
     const content = `
-// Test various edge cases with symbol properties
-export const edgeCases = {
-  // Client with symbols but null/undefined values
-  nullDatasources: {
+// Test various edge cases with symbol properties.
+// Exported at top level: the analyzer walks module exports, it does not
+// recurse into plain objects.
+export const nullDatasources = {
     [Symbol.for('isTinybirdClient')]: true,
     [Symbol.for('tinybirdDatasources')]: null,
-    [Symbol.for('tinybirdPipes')]: undefined
-  },
-  
-  // Client with empty symbol properties
-  emptySymbolProps: {
+  [Symbol.for('tinybirdPipes')]: undefined
+};
+
+export const emptySymbolProps = {
     [Symbol.for('isTinybirdClient')]: true,
     [Symbol.for('tinybirdDatasources')]: {},
-    [Symbol.for('tinybirdPipes')]: {}
-  },
-  
-  // Client with circular references (should not break analyzer)
-  circularRefs: (() => {
+  [Symbol.for('tinybirdPipes')]: {}
+};
+
+export const circularRefs = (() => {
     const obj: any = {
       [Symbol.for('isTinybirdClient')]: true,
       [Symbol.for('tinybirdDatasources')]: {},
       [Symbol.for('tinybirdPipes')]: {}
     };
-    obj[Symbol.for('tinybirdDatasources')].self = obj;
-    return obj;
-  })(),
-  
-  // Object with symbol but wrong client symbol value
-  wrongClientSymbol: {
+  obj[Symbol.for('tinybirdDatasources')].self = obj;
+  return obj;
+})();
+
+export const wrongClientSymbol = {
     [Symbol.for('isTinybirdClient')]: false,
     [Symbol.for('tinybirdDatasources')]: { fake: 'data' },
-    [Symbol.for('tinybirdPipes')]: { fake: 'pipe' }
-  },
-  
-  // Object with symbol but non-boolean client symbol
-  nonBooleanSymbol: {
+  [Symbol.for('tinybirdPipes')]: { fake: 'pipe' }
+};
+
+export const nonBooleanSymbol = {
     [Symbol.for('isTinybirdClient')]: 'true',
     [Symbol.for('tinybirdDatasources')]: { fake: 'data' },
-    [Symbol.for('tinybirdPipes')]: { fake: 'pipe' }
-  }
+  [Symbol.for('tinybirdPipes')]: { fake: 'pipe' }
 };
 `;
 
@@ -374,7 +369,9 @@ export const edgeCases = {
 
     // Should only detect legitimate clients (with boolean true symbol)
     const clientExports = result.tinybirdClients.filter((c) =>
-      c.exportName.includes('edgeCases.')
+      ['nullDatasources', 'emptySymbolProps', 'circularRefs'].includes(
+        c.exportName
+      )
     );
 
     // Only nullDatasources, emptySymbolProps, and circularRefs should be detected as clients
@@ -382,13 +379,13 @@ export const edgeCases = {
     expect(clientExports).toHaveLength(3);
 
     const nullClient = result.tinybirdClients.find(
-      (c) => c.exportName === 'edgeCases.nullDatasources'
+      (c) => c.exportName === 'nullDatasources'
     );
     const emptyClient = result.tinybirdClients.find(
-      (c) => c.exportName === 'edgeCases.emptySymbolProps'
+      (c) => c.exportName === 'emptySymbolProps'
     );
     const circularClient = result.tinybirdClients.find(
-      (c) => c.exportName === 'edgeCases.circularRefs'
+      (c) => c.exportName === 'circularRefs'
     );
 
     expect(nullClient).toBeDefined();

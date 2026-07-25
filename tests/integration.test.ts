@@ -56,7 +56,11 @@ async function checkTinybirdLocal(): Promise<boolean> {
   }
 }
 
-describe('Comprehensive TinyKit Integration Tests', () => {
+const integrationConfigured = Boolean(TINYBIRD_TOKEN);
+
+describe.skipIf(!integrationConfigured)(
+  'Comprehensive TinyKit Integration Tests',
+  () => {
   let client: Tinybird<any, any>;
   const testId = Date.now().toString().slice(-6);
 
@@ -161,7 +165,7 @@ describe('Comprehensive TinyKit Integration Tests', () => {
         noParamsPipe,
       },
     });
-  });
+  }, 60_000);
 
   test('should create data source using Tinybird CLI deployment method', async () => {
     // DataSources in Tinybird Local require CLI deployment, not direct API creation
@@ -1228,4 +1232,5 @@ WHERE signup_date < '2024-01-01')`);
       workflowComplete: true,
     };
   });
-});
+  }
+);

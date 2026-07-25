@@ -21,9 +21,9 @@ describe('Generate Command Integration', () => {
     const sourceFile = join(testDir, 'client.ts');
     
     const content = `
-import { Tinybird } from '../../src/client';
-import { defineDataSource, defineSchema, string, int64 } from '../../src/schema';
-import { definePipe, stringParam, int64Param } from '../../src/pipe';
+import { Tinybird } from '../../../src/client';
+import { defineDataSource, defineSchema, string, int64 } from '../../../src/schema';
+import { definePipe, stringParam, int64Param } from '../../../src/pipe';
 
 const eventsSchema = defineSchema({
   id: string('id', { jsonPath: '$.id' }),
@@ -49,17 +49,17 @@ const getUserActivityPipe = definePipe({
     start: int64Param('start', { required: true }),
     limit: int64Param('limit', { default: 100 })
   }
-}).endpoint((q, params) =>
+}).raw(
   \`SELECT 
     id, 
     event,
     count() AS count
   FROM events__v1 
-  WHERE tenantId = \${params.tenantId} 
-    AND time >= \${params.start}
+  WHERE tenantId = {{ String(tenantId, required=True) }} 
+    AND time >= {{ Int64(start, required=True) }}
   GROUP BY id, event
   ORDER BY count DESC
-  LIMIT \${params.limit}\`
+  LIMIT {{ Int64(limit, 100) }}\`
 );
 
 export const tb = new Tinybird({
@@ -77,7 +77,7 @@ export const tb = new Tinybird({
 
     // Run generate command
     await generateCommand({
-      file: sourceFile,
+      file: [sourceFile],
       dir: outputDir,
       watch: false,
       dryRun: false
@@ -88,7 +88,7 @@ export const tb = new Tinybird({
     expect(existsSync(join(outputDir, 'pipes'))).toBe(true);
 
     // Check datasource file
-    const datasourceFile = join(outputDir, 'datasources', 'events.datasource');
+    const datasourceFile = join(outputDir, 'datasources', 'events__v1.datasource');
     expect(existsSync(datasourceFile)).toBe(true);
     
     const datasourceContent = readFileSync(datasourceFile, 'utf-8');
@@ -145,7 +145,7 @@ export const tb = new Tinybird({
 
     // Run generate command with dry run
     await generateCommand({
-      file: sourceFile,
+      file: [sourceFile],
       dir: dryRunOutputDir,
       watch: false,
       dryRun: true
@@ -159,9 +159,9 @@ export const tb = new Tinybird({
     const sourceFile = join(testDir, 'multi-resource-client.ts');
     
     const content = `
-import { Tinybird } from '../../src/client';
-import { defineDataSource, defineSchema, string, int64 } from '../../src/schema';
-import { definePipe, stringParam, int64Param } from '../../src/pipe';
+import { Tinybird } from '../../../src/client';
+import { defineDataSource, defineSchema, string, int64 } from '../../../src/schema';
+import { definePipe, stringParam, int64Param } from '../../../src/pipe';
 
 const eventsSchema = defineSchema({
   id: string('id'),
@@ -194,7 +194,7 @@ export const tb = new Tinybird({
       parameters: {
         eventType: stringParam('eventType', { required: true })
       }
-    }).endpoint((q, params) => \`SELECT * FROM events__v2 WHERE event = \${params.eventType}\`),
+    }).raw(\`SELECT * FROM events__v2 WHERE event = {{ String(eventType, required=True) }}\`),
     
     getUsers: definePipe({
       name: 'get_users__v1',
@@ -202,7 +202,7 @@ export const tb = new Tinybird({
       parameters: {
         limit: int64Param('limit', { default: 50 })
       }
-    }).endpoint((q, params) => \`SELECT * FROM users__v1 LIMIT \${params.limit}\`)
+    }).raw(\`SELECT * FROM users__v1 LIMIT {{ Int64(limit, 50) }}\`)
   }
 });
 `;
@@ -212,23 +212,23 @@ export const tb = new Tinybird({
     const multiOutputDir = join(testDir, 'multi-output');
 
     await generateCommand({
-      file: sourceFile,
+      file: [sourceFile],
       dir: multiOutputDir,
       watch: false,
       dryRun: false
     });
 
     // Check all files were generated
-    expect(existsSync(join(multiOutputDir, 'datasources', 'events.datasource'))).toBe(true);
-    expect(existsSync(join(multiOutputDir, 'datasources', 'users.datasource'))).toBe(true);
+    expect(existsSync(join(multiOutputDir, 'datasources', 'events__v2.datasource'))).toBe(true);
+    expect(existsSync(join(multiOutputDir, 'datasources', 'users__v1.datasource'))).toBe(true);
     expect(existsSync(join(multiOutputDir, 'pipes', 'get_events__v2.pipe'))).toBe(true);
     expect(existsSync(join(multiOutputDir, 'pipes', 'get_users__v1.pipe'))).toBe(true);
 
     // Verify content of one datasource
-    const eventsDataSource = readFileSync(join(multiOutputDir, 'datasources', 'events.datasource'), 'utf-8');
+    const eventsDataSource = readFileSync(join(multiOutputDir, 'datasources', 'events__v2.datasource'), 'utf-8');
     expect(eventsDataSource).toContain('ENGINE "MergeTree"');
 
-    const usersDataSource = readFileSync(join(multiOutputDir, 'datasources', 'users.datasource'), 'utf-8');
+    const usersDataSource = readFileSync(join(multiOutputDir, 'datasources', 'users__v1.datasource'), 'utf-8');
     expect(usersDataSource).toContain('ENGINE "ReplacingMergeTree"');
 
     // Verify pipe content
@@ -243,8 +243,8 @@ export const tb = new Tinybird({
     const sourceFile = join(testDir, 'standalone-resources.ts');
     
     const content = `
-import { defineDataSource, defineSchema, string } from '../../src/schema';
-import { definePipe, stringParam } from '../../src/pipe';
+import { defineDataSource, defineSchema, string } from '../../../src/schema';
+import { definePipe, stringParam } from '../../../src/pipe';
 
 const schema = defineSchema({
   id: string('id'),
@@ -264,7 +264,7 @@ export const myPipe = definePipe({
   parameters: {
     searchTerm: stringParam('searchTerm', { required: true })
   }
-}).endpoint((q, params) => \`SELECT * FROM standalone_table__v1 WHERE name LIKE '%\${params.searchTerm}%'\`);
+}).raw(\`SELECT * FROM standalone_table__v1 WHERE name LIKE {{ String(searchTerm, required=True) }}\`);
 `;
 
     writeFileSync(sourceFile, content);
@@ -272,18 +272,18 @@ export const myPipe = definePipe({
     const standaloneOutputDir = join(testDir, 'standalone-output');
 
     await generateCommand({
-      file: sourceFile,
+      file: [sourceFile],
       dir: standaloneOutputDir,
       watch: false,
       dryRun: false
     });
 
     // Check files were generated
-    expect(existsSync(join(standaloneOutputDir, 'datasources', 'standalone_table.datasource'))).toBe(true);
+    expect(existsSync(join(standaloneOutputDir, 'datasources', 'standalone_table__v1.datasource'))).toBe(true);
     expect(existsSync(join(standaloneOutputDir, 'pipes', 'standalone_pipe__v1.pipe'))).toBe(true);
 
     // Verify content
-    const datasourceContent = readFileSync(join(standaloneOutputDir, 'datasources', 'standalone_table.datasource'), 'utf-8');
+    const datasourceContent = readFileSync(join(standaloneOutputDir, 'datasources', 'standalone_table__v1.datasource'), 'utf-8');
     expect(datasourceContent).toContain('VERSION 2');
 
     const pipeContent = readFileSync(join(standaloneOutputDir, 'pipes', 'standalone_pipe__v1.pipe'), 'utf-8');
@@ -306,7 +306,7 @@ export function someFunction() {
     const emptyOutputDir = join(testDir, 'empty-output');
 
     await generateCommand({
-      file: sourceFile,
+      file: [sourceFile],
       dir: emptyOutputDir,
       watch: false,
       dryRun: false

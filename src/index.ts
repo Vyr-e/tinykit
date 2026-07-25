@@ -10,6 +10,7 @@ export {
 export { defineDataSource, defineSchema, generateCreateTableSQL } from './schema.js';
 export { definePipe, defineParameters, PipeBuilder } from './pipe.js';
 export { query } from './query.js';
+export type { SQLExpression, InferParameterTemplates } from './types.js';
 export { 
   defineIngest, 
   streamingIngest, 
@@ -69,6 +70,7 @@ export {
   timeGranularity,
   conditional,
   param,
+  unsafeSQL,
   eq,
   neq,
   gt,

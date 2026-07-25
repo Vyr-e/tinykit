@@ -83,6 +83,39 @@ export type DataSourceConfig<
   version?: number;
 };
 
+export const SQL_EXPRESSION: unique symbol = Symbol.for('tinykit.sqlExpression');
+
+/**
+ * A value that is known to be SQL, not data.
+ *
+ * Only TinyKit mints these - via `param()` or the `tpl` object handed to an
+ * endpoint. Anywhere the builder accepts `SQLExpression` a plain string is a
+ * compile error, and `escapeValue` quotes anything unbranded, so a runtime
+ * value cannot become SQL by accident.
+ *
+ * It carries `toString`, so it still interpolates into template literals.
+ */
+export type SQLExpression = {
+  readonly [SQL_EXPRESSION]: true;
+  toString(): string;
+};
+
+/**
+ * Brands a string as SQL.
+ * @internal
+ */
+export const sqlExpression = (sql: string): SQLExpression => ({
+  [SQL_EXPRESSION]: true,
+  toString: () => sql,
+});
+
+/**
+ * Narrows an unknown value to a branded SQL expression.
+ * @internal
+ */
+export const isSQLExpression = (value: unknown): value is SQLExpression =>
+  typeof value === 'object' && value !== null && SQL_EXPRESSION in value;
+
 /**
  * Represents a single parameter for a Tinybird Pipe.
  * @template T The TypeScript type of the parameter.
@@ -154,6 +187,18 @@ export type InferParametersType<T extends QueryParameters> = {
  */
 export type InferParametersWithDefaults<T extends QueryParameters> = {
   [K in keyof T]: z.infer<T[K]['schema']>;
+};
+
+/**
+ * The rendered Tinybird template for each declared parameter.
+ *
+ * `tpl.limit` is `{{ Int64(limit, 10) }}` built from the parameter's own
+ * declaration, so a default is written once in `defineParameters` and cannot
+ * drift from the query body.
+ * @template T The query parameters definition.
+ */
+export type InferParameterTemplates<T extends QueryParameters> = {
+  [K in keyof T]: SQLExpression;
 };
 
 declare const pipeOutputType: unique symbol;

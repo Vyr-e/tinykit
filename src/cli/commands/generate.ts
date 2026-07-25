@@ -9,7 +9,7 @@ import {
 } from 'fs';
 import { join, extname } from 'path';
 import { log } from '../utils/terminal.js';
-import { generateDatasourceFile, extractDatasourceName } from '../generators/datasource.js';
+import { generateDatasourceFile } from '../generators/datasource.js';
 import { generatePipeFile, extractPipeName } from '../generators/pipe.js';
 import { analyzeTypeScriptFiles, validateNaming } from '../utils/typescript-analyzer.js';
 import type { FileGenerationResult } from '../types.js';
@@ -114,7 +114,7 @@ export async function generateCommand(options: GenerateOptions): Promise<void> {
     for (const discovered of analysis.datasources) {
       log.info(`Generating datasource: ${discovered.name}`);
       const content = generateDatasourceFile(discovered.config);
-      const fileName = `${extractDatasourceName(discovered.config)}.datasource`;
+      const fileName = `${discovered.config.name}.datasource`;
       const filePath = join(options.dir, 'datasources', fileName);
 
       if (!options.dryRun) {

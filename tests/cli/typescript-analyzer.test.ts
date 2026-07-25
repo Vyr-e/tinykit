@@ -433,10 +433,12 @@ export const publicApiTest = {
     
     const publicApiTest = module.publicApiTest;
     
-    // Private properties are detectable but not accessible
-    expect(publicApiTest.hasDatasourcesProperty).toBe(true); // 'in' operator detects private properties
-    expect(publicApiTest.hasPipesProperty).toBe(true);
-    expect(publicApiTest.hasConfigProperty).toBe(false); // this one doesn't exist
+    // #datasources and #pipes are ES private fields, so they are neither
+    // detectable by 'in' nor readable - unlike a TypeScript 'private' member,
+    // which is erased at runtime and stays fully accessible.
+    expect(publicApiTest.hasDatasourcesProperty).toBe(false);
+    expect(publicApiTest.hasPipesProperty).toBe(false);
+    expect(publicApiTest.hasConfigProperty).toBe(false);
     
     // But the actual values should be undefined (not accessible)
     expect(publicApiTest.datasourcesValue).toBeUndefined();
