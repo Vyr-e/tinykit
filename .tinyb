@@ -1,0 +1,11 @@
+{
+    "host": "http://localhost:7181",
+    "id": "8740e982-f16a-4b8e-84c7-facfe53f84f3",
+    "name": "fix_tinykit_integration",
+    "scope": "admin",
+    "token": "p.eyJ1IjogIjg3NDBlOTgyLWYxNmEtNGI4ZS04NGM3LWZhY2ZlNTNmODRmMyIsICJpZCI6ICJhYzUyODdhMi1mMWIwLTQzM2YtOTA2YS0zNmZmYTgyYmM1MGYiLCAiaG9zdCI6ICJsb2NhbCJ9.eA78sF2SGRvXfYLljNj_6OJkRzx66TUxjUPYegxoo3A",
+    "tokens": {
+        "http://localhost:7181": "p.eyJ1IjogIjg3NDBlOTgyLWYxNmEtNGI4ZS04NGM3LWZhY2ZlNTNmODRmMyIsICJpZCI6ICJhYzUyODdhMi1mMWIwLTQzM2YtOTA2YS0zNmZmYTgyYmM1MGYiLCAiaG9zdCI6ICJsb2NhbCJ9.eA78sF2SGRvXfYLljNj_6OJkRzx66TUxjUPYegxoo3A"
+    },
+    "version": "4.6.13"
+}

@@ -21,8 +21,10 @@ export function generateDatasourceFile<T extends SchemaDefinition>(
     // Always add JSONPath for ingestion compatibility. Array columns need the
     // [:] operator - Tinybird rejects a bare path on an Array type.
     const isArray = /^Array\(/.test(columnDef.type);
-    const jsonPath =
-      columnDef.jsonPath || `$.${columnDef.name}${isArray ? '[:]' : ''}`;
+    let jsonPath = columnDef.jsonPath || `$.${columnDef.name}`;
+    if (isArray && !jsonPath.endsWith('[:]')) {
+      jsonPath += '[:]';
+    }
     columnLine += ` \`json:${jsonPath}\``;
     const isLast = idx === columns.length - 1;
     lines.push(isLast ? columnLine : columnLine + ',');
@@ -57,5 +59,5 @@ export function generateDatasourceFile<T extends SchemaDefinition>(
 export function extractDatasourceName<T extends SchemaDefinition>(
   dataSource: DataSourceConfig<T>
 ): string {
-  return dataSource.name;
+  return dataSource.name.replace(/__v\d+$/, '');
 }

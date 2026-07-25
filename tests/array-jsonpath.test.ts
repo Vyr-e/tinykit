@@ -41,12 +41,16 @@ describe('array JSONPaths', () => {
     expect(file).toContain('`count` Int64 `json:$.count`');
   });
 
-  test('an explicit jsonPath still wins', () => {
+  test('respects an explicit jsonPath, adding [:] when missing', () => {
     const schema = defineSchema({
       id: string('id'),
       tags: array('tags', string('tags').schema, {
         innerType: 'String',
         jsonPath: '$.custom.path[:]',
+      }),
+      alsoTags: array('alsoTags', string('alsoTags').schema, {
+        innerType: 'String',
+        jsonPath: '$.other.path',
       }),
     });
 
@@ -60,5 +64,6 @@ describe('array JSONPaths', () => {
     );
 
     expect(file).toContain('`json:$.custom.path[:]`');
+    expect(file).toContain('`json:$.other.path[:]`');
   });
 });

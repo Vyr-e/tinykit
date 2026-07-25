@@ -1,6 +1,6 @@
 {
   "name": "@vyr-e/tinykit",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "TypeSafe query client for Tinybird with functional API",
   "type": "module",
   "main": "./dist/index.js",

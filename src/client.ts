@@ -192,8 +192,8 @@ export class Tinybird<
   private readonly baseUrl: string;
   public readonly token: string;
   public readonly noop: boolean;
-  private readonly datasources: TDatasources | undefined;
-  private readonly pipes: TPipes | undefined;
+  readonly #datasources: TDatasources | undefined;
+  readonly #pipes: TPipes | undefined;
   public readonly [isTinybirdClientSymbol] = true;
 
   // Symbol-keyed properties for CLI analyzer access only
@@ -202,8 +202,8 @@ export class Tinybird<
 
   constructor(config: Config<TDatasources, TPipes>) {
     this.baseUrl = config.baseUrl ?? 'https://api.tinybird.co';
-    this.datasources = config.datasources;
-    this.pipes = config.pipes;
+    this.#datasources = config.datasources;
+    this.#pipes = config.pipes;
 
     // Store config in symbol-keyed properties for CLI analyzer access
     this[datasourcesSymbol] = config.datasources;
@@ -232,7 +232,7 @@ export class Tinybird<
   from<TName extends keyof TDatasources>(
     name: TName
   ): QueryBuilder<TDatasources[TName]['schema']> {
-    const datasource = this.datasources?.[name];
+    const datasource = this.#datasources?.[name];
     if (!datasource) {
       throw new Error(`Unknown datasource: ${String(name)}`);
     }
@@ -449,8 +449,8 @@ export class Tinybird<
       let validatedParams: Record<string, unknown> | undefined;
       let pipeDefinition: PipeConfig<QueryParameters> | undefined;
 
-      if (typeof req.pipe === 'string' && this.pipes) {
-        pipeDefinition = Object.values(this.pipes).find(
+      if (typeof req.pipe === 'string' && this.#pipes) {
+        pipeDefinition = Object.values(this.#pipes).find(
           (p) => (p as any).name === req.pipe
         ) as PipeConfig<QueryParameters> | undefined;
       }
@@ -577,7 +577,7 @@ export class Tinybird<
       ingestDef = req;
     } else {
       // This is a request object with datasource name
-      const datasource = Object.values(this.datasources ?? {}).find(
+      const datasource = Object.values(this.#datasources ?? {}).find(
         (d) => d.name === req.datasource
       );
       if (!datasource) {

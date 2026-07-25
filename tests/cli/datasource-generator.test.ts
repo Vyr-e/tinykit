@@ -75,8 +75,8 @@ describe('Datasource Generator', () => {
     expect(result).toContain('VERSION 2');
     expect(result).toContain('`id` UUID `json:$.id`');
     expect(result).toContain('`isActive` Boolean `json:$.isActive`');
-    expect(result).toContain('`createdAt` DateTime64 `json:$.createdAt`');
-    expect(result).toContain('`tags` Array(String) `json:$.tags`');
+    expect(result).toContain('`createdAt` DateTime64(3) `json:$.createdAt`');
+    expect(result).toContain('`tags` Array(String) `json:$.tags[:]`');
     expect(result).toContain(
       '`optionalField` Nullable(String) `json:$.optional`'
     );
