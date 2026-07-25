@@ -54,7 +54,5 @@ export function generateDatasourceFile<T extends SchemaDefinition>(
 export function extractDatasourceName<T extends SchemaDefinition>(
   dataSource: DataSourceConfig<T>
 ): string {
-  // Extract the base name without version suffix
-  const baseName = dataSource.name.replace(/__v\d+$/, '');
-  return baseName;
+  return dataSource.name;
 }
