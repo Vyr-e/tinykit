@@ -5,6 +5,7 @@ import type {
   SchemaDefinition,
   InferSchemaType,
   DataSourceConfig,
+  PipeConfig,
 } from './types.js';
 import {
   type PipeErrorResponse,
@@ -107,6 +108,23 @@ type FindPipeByName<
 > = {
   [K in keyof TPipes]: TPipes[K] extends { name: TName } ? TPipes[K] : never;
 }[keyof TPipes];
+
+type PipeResponse<TData extends z.ZodSchema<any>> = Promise<{
+  data: z.output<TData>[];
+  meta: any[];
+  statistics?: any;
+}>;
+
+type RequiredKeys<T extends object> = {
+  [K in keyof T]-?: {} extends Pick<T, K> ? never : K;
+}[keyof T];
+
+type PipeExecutor<
+  TParameters extends QueryParameters,
+  TData extends z.ZodSchema<any>
+> = [RequiredKeys<InferParametersType<TParameters>>] extends [never]
+  ? (params?: InferParametersType<TParameters>) => PipeResponse<TData>
+  : (params: InferParametersType<TParameters>) => PipeResponse<TData>;
 
 type ExtractDatasourceNames<T extends Record<string, any>> = {
   [K in keyof T]: T[K] extends { name: infer N extends string } ? N : never;
@@ -351,15 +369,9 @@ export class Tinybird<
     };
   }): FindPipeByName<TName, TPipes> extends { parameters: infer TParams }
     ? TParams extends QueryParameters
-      ? (
-          params: InferParametersType<TParams>
-        ) => Promise<{ data: z.output<TData>[]; meta: any[]; statistics?: any }>
-      : () => Promise<{
-          data: z.output<TData>[];
-          meta: any[];
-          statistics?: any;
-        }>
-    : () => Promise<{ data: z.output<TData>[]; meta: any[]; statistics?: any }>;
+      ? PipeExecutor<TParams, TData>
+      : () => PipeResponse<TData>
+    : () => PipeResponse<TData>;
 
   public pipe<
     TData extends z.ZodSchema<any>,
@@ -375,14 +387,10 @@ export class Tinybird<
       };
     };
   }): TParameters extends QueryParameters
-    ? (
-        params: InferParametersType<TParameters>
-      ) => Promise<{ data: z.output<TData>[]; meta: any[]; statistics?: any }>
+    ? PipeExecutor<TParameters, TData>
     : TParameters extends z.ZodSchema<any>
-    ? (
-        params: z.input<TParameters>
-      ) => Promise<{ data: z.output<TData>[]; meta: any[]; statistics?: any }>
-    : () => Promise<{ data: z.output<TData>[]; meta: any[]; statistics?: any }>;
+    ? (params: z.input<TParameters>) => PipeResponse<TData>
+    : () => PipeResponse<TData>;
 
   public pipe<
     TData extends z.ZodSchema<any>,
@@ -397,21 +405,21 @@ export class Tinybird<
         revalidate?: number;
       };
     };
-  }) {
-    return async (params: any) => {
-      let validatedParams: any = undefined;
-      let pipeDefinition: any;
+  }): (params?: unknown) => PipeResponse<TData> {
+    return async (params?: unknown) => {
+      let validatedParams: Record<string, unknown> | undefined;
+      let pipeDefinition: PipeConfig<QueryParameters> | undefined;
 
       if (typeof req.pipe === 'string' && this.pipes) {
         pipeDefinition = Object.values(this.pipes).find(
           (p) => (p as any).name === req.pipe
-        );
+        ) as PipeConfig<QueryParameters> | undefined;
       }
 
       if (pipeDefinition?.parameters) {
         validatedParams = this.validateParameters(
           pipeDefinition.parameters,
-          params || {}
+          (params ?? {}) as Record<string, unknown>
         );
       } else if (req.parameters) {
         if (this.isQueryParameters(req.parameters)) {
@@ -424,7 +432,7 @@ export class Tinybird<
             );
           validatedParams = v.data;
         } else {
-          const v = (req.parameters as z.ZodSchema<any>).safeParse(params);
+          const v = req.parameters.safeParse(params);
           if (!v.success)
             throw new TinybirdValidationError(
               `Parameter validation failed: ${v.error.message}`,
@@ -438,10 +446,8 @@ export class Tinybird<
         return { data: [], meta: [] };
       }
 
-      const url = new URL(
-        `/v0/pipes/${pipeDefinition.name}.json`,
-        this.baseUrl
-      );
+      const targetPipeName = pipeDefinition?.name ?? req.pipe;
+      const url = new URL(`/v0/pipes/${targetPipeName}.json`, this.baseUrl);
       if (validatedParams) {
         for (const [key, value] of Object.entries(validatedParams)) {
           if (typeof value === 'undefined' || value === null) {
@@ -469,7 +475,10 @@ export class Tinybird<
         );
       }
 
-      return validatedResponse.data;
+      return {
+        ...validatedResponse.data,
+        meta: validatedResponse.data.meta ?? [],
+      };
     };
   }
 
@@ -628,23 +637,36 @@ export class Tinybird<
     return validated as InferParametersType<T>;
   }
 
-  private isQueryParameters(obj: any): obj is QueryParameters {
+  private isQueryParameters(obj: unknown): obj is QueryParameters {
     if (!obj || typeof obj !== 'object') return false;
 
-    for (const key in obj) {
-      const value = obj[key];
-      if (
-        value &&
-        typeof value === 'object' &&
-        'name' in value &&
-        'type' in value &&
-        'schema' in value
-      ) {
-        return true;
-      }
-    }
+    const candidate = obj as Record<string, unknown>;
+    if (typeof candidate.safeParse === 'function') return false;
 
-    return false;
+    const supportedTypes = new Set([
+      'String',
+      'Int64',
+      'Float64',
+      'DateTime',
+      'Date',
+      'Boolean',
+    ]);
+
+    return Object.values(candidate).every((value) => {
+      if (!value || typeof value !== 'object') return false;
+
+      const parameter = value as Record<string, unknown>;
+      const schema = parameter.schema;
+
+      return (
+        typeof parameter.name === 'string' &&
+        typeof parameter.type === 'string' &&
+        supportedTypes.has(parameter.type) &&
+        !!schema &&
+        typeof schema === 'object' &&
+        typeof (schema as { safeParse?: unknown }).safeParse === 'function'
+      );
+    });
   }
 }
 

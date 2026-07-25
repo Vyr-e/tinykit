@@ -11,6 +11,29 @@ import type { QueryBuilder } from './query.js';
 import { query } from './query.js';
 import { createZodSchemaFromParameters } from './client.js';
 
+type QueryParameterOptions<T> = {
+  required?: boolean;
+  default?: T;
+};
+
+type DefinedQueryParameter<
+  T,
+  TOptions extends QueryParameterOptions<T>
+> = QueryParameter<T> & TOptions;
+
+function defineQueryParameter<
+  T,
+  const TOptions extends QueryParameterOptions<T>
+>(
+  parameter: QueryParameter<T>,
+  options?: TOptions
+): DefinedQueryParameter<T, TOptions> {
+  return {
+    ...parameter,
+    ...options,
+  } as DefinedQueryParameter<T, TOptions>;
+}
+
 /**
  * Defines a String parameter for a Tinybird Pipe.
  * @param name The name of the parameter.
@@ -24,15 +47,20 @@ import { createZodSchemaFromParameters } from './client.js';
  * });
  * ```
  */
-export const stringParam = (
+export const stringParam = <
+  const TOptions extends QueryParameterOptions<string> = {}
+>(
   name: string,
-  options?: { required?: boolean; default?: string }
-): QueryParameter<string> => ({
-  name,
-  type: 'String',
-  schema: z.string(),
-  ...options,
-});
+  options?: TOptions
+): DefinedQueryParameter<string, TOptions> =>
+  defineQueryParameter(
+    {
+      name,
+      type: 'String',
+      schema: z.string(),
+    },
+    options
+  );
 
 /**
  * Defines an Int64 parameter for a Tinybird Pipe.
@@ -47,15 +75,20 @@ export const stringParam = (
  * });
  * ```
  */
-export const int64Param = (
+export const int64Param = <
+  const TOptions extends QueryParameterOptions<number> = {}
+>(
   name: string,
-  options?: { required?: boolean; default?: number }
-): QueryParameter<number> => ({
-  name,
-  type: 'Int64',
-  schema: z.number().int(),
-  ...options,
-});
+  options?: TOptions
+): DefinedQueryParameter<number, TOptions> =>
+  defineQueryParameter(
+    {
+      name,
+      type: 'Int64',
+      schema: z.number().int(),
+    },
+    options
+  );
 
 /**
  * Defines a Float64 parameter for a Tinybird Pipe.
@@ -70,15 +103,20 @@ export const int64Param = (
  * });
  * ```
  */
-export const float64Param = (
+export const float64Param = <
+  const TOptions extends QueryParameterOptions<number> = {}
+>(
   name: string,
-  options?: { required?: boolean; default?: number }
-): QueryParameter<number> => ({
-  name,
-  type: 'Float64',
-  schema: z.number(),
-  ...options,
-});
+  options?: TOptions
+): DefinedQueryParameter<number, TOptions> =>
+  defineQueryParameter(
+    {
+      name,
+      type: 'Float64',
+      schema: z.number(),
+    },
+    options
+  );
 
 /**
  * Defines a DateTime parameter for a Tinybird Pipe.
@@ -93,15 +131,20 @@ export const float64Param = (
  * });
  * ```
  */
-export const dateTimeParam = (
+export const dateTimeParam = <
+  const TOptions extends QueryParameterOptions<string | Date | number> = {}
+>(
   name: string,
-  options?: { required?: boolean; default?: string | Date | number }
-): QueryParameter<string | Date | number> => ({
-  name,
-  type: 'DateTime',
-  schema: z.union([z.string(), z.date(), z.number()]),
-  ...options,
-});
+  options?: TOptions
+): DefinedQueryParameter<string | Date | number, TOptions> =>
+  defineQueryParameter(
+    {
+      name,
+      type: 'DateTime',
+      schema: z.union([z.string(), z.date(), z.number()]),
+    },
+    options
+  );
 
 /**
  * Defines a Date parameter for a Tinybird Pipe.
@@ -116,15 +159,20 @@ export const dateTimeParam = (
  * });
  * ```
  */
-export const dateParam = (
+export const dateParam = <
+  const TOptions extends QueryParameterOptions<string | Date> = {}
+>(
   name: string,
-  options?: { required?: boolean; default?: string | Date }
-): QueryParameter<string | Date> => ({
-  name,
-  type: 'Date',
-  schema: z.union([z.string(), z.date()]),
-  ...options,
-});
+  options?: TOptions
+): DefinedQueryParameter<string | Date, TOptions> =>
+  defineQueryParameter(
+    {
+      name,
+      type: 'Date',
+      schema: z.union([z.string(), z.date()]),
+    },
+    options
+  );
 
 /**
  * Defines a Boolean parameter for a Tinybird Pipe.
@@ -139,15 +187,20 @@ export const dateParam = (
  * });
  * ```
  */
-export const booleanParam = (
+export const booleanParam = <
+  const TOptions extends QueryParameterOptions<boolean> = {}
+>(
   name: string,
-  options?: { required?: boolean; default?: boolean }
-): QueryParameter<boolean> => ({
-  name,
-  type: 'Boolean',
-  schema: z.boolean(),
-  ...options,
-});
+  options?: TOptions
+): DefinedQueryParameter<boolean, TOptions> =>
+  defineQueryParameter(
+    {
+      name,
+      type: 'Boolean',
+      schema: z.boolean(),
+    },
+    options
+  );
 
 /**
  * Defines an Enum parameter for a Tinybird Pipe.
@@ -163,18 +216,22 @@ export const booleanParam = (
  * });
  * ```
  */
-export function enumParam<T extends readonly [string, ...string[]]>(
+export function enumParam<
+  T extends readonly [string, ...string[]],
+  const TOptions extends QueryParameterOptions<T[number]> = {}
+>(
   name: string,
   values: T,
-  options?: { required?: boolean; default?: T[number] }
-): QueryParameter<T[number]> {
-  return {
-    name,
-    type: 'String',
-    schema: z.enum(values),
-    required: options?.required,
-    default: options?.default,
-  };
+  options?: TOptions
+): DefinedQueryParameter<T[number], TOptions> {
+  return defineQueryParameter(
+    {
+      name,
+      type: 'String',
+      schema: z.enum(values),
+    },
+    options
+  );
 }
 
 /**
